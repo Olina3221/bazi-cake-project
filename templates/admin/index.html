@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎂 八字蛋糕後台</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+    :root {
+      --sand:    #f5ede0;
+      --cream:   #fdf8f2;
+      --brown:   #4a2c1a;
+      --caramel: #c97a5a;
+      --soft:    #e8d0bc;
+      --muted:   #9a7060;
+      --success: #7aab72;
+      --warn:    #e0a040;
+      --danger:  #d06050;
+      --sidebar: 220px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: var(--cream);
+      color: var(--brown);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar);
+      min-height: 100vh;
+      background: var(--brown);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0;
+      z-index: 100;
+    }
+
+    .sidebar-logo {
+      padding: 28px 20px 20px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      text-align: center;
+    }
+    .sidebar-logo .icon { font-size: 2rem; display: block; }
+    .sidebar-logo h2 {
+      font-family: 'Noto Serif TC', serif;
+      font-size: .9rem;
+      color: var(--sand);
+      margin-top: 6px;
+      letter-spacing: .1em;
+    }
+
+    .sidebar-nav { padding: 16px 0; flex: 1; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      color: rgba(255,255,255,.65);
+      text-decoration: none;
+      font-size: .88rem;
+      transition: all .2s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover  { color: #fff; background: rgba(255,255,255,.06); }
+    .nav-item.active {
+      color: var(--sand);
+      background: rgba(255,255,255,.1);
+      border-left-color: var(--caramel);
+      font-weight: 700;
+    }
+    .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(255,255,255,.1);
+      font-size: .75rem;
+      color: rgba(255,255,255,.3);
+    }
+
+    /* ── Main ── */
+    .main {
+      margin-left: var(--sidebar);
+      flex: 1;
+      padding: 32px 36px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .page-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.4rem;
+      color: var(--brown);
+    }
+    .page-title span { color: var(--caramel); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: opacity .2s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--caramel); color: #fff; }
+    .btn-ghost   { background: var(--soft); color: var(--brown); }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px 20px;
+      border: 1px solid var(--soft);
+    }
+    .stat-card .num {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--brown);
+    }
+    .stat-card .label {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .stat-card .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid var(--soft);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      background: var(--sand);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    tbody tr {
+      border-top: 1px solid #f0e8e0;
+      transition: background .15s;
+    }
+    tbody tr:hover { background: #fdf6f0; }
+    td {
+      padding: 14px 16px;
+      font-size: .88rem;
+      color: var(--brown);
+      vertical-align: middle;
+    }
+    .order-id {
+      font-weight: 700;
+      color: var(--caramel);
+      font-family: 'Noto Serif TC', serif;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+    .badge-pending  { background: #fdf0e0; color: var(--warn); }
+    .badge-analyzed { background: #e8f4e8; color: var(--success); }
+    .badge-done     { background: #e8e8f8; color: #6060c0; }
+
+    .wish-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--sand);
+      border-radius: 6px;
+      font-size: .78rem;
+    }
+
+    .action-link {
+      color: var(--caramel);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: .83rem;
+    }
+    .action-link:hover { text-decoration: underline; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🎂</span>
+    <h2>八字蛋糕後台</h2>
+  </div>
+  <div class="sidebar-nav">
+    <a href="/admin" class="nav-item active">
+      <span class="nav-icon">📋</span> 訂單列表
+    </a>
+    <a href="/admin/ingredients" class="nav-item">
+      <span class="nav-icon">🌿</span> 食材管理
+    </a>
+    <a href="/admin/print" class="nav-item">
+      <span class="nav-icon">🖨️</span> 大批列印
+    </a>
+    <a href="/" class="nav-item">
+      <span class="nav-icon">📝</span> 客戶填單頁
+    </a>
+  </div>
+  <div class="sidebar-footer">v1.0 ✦ 八字烘焙系統</div>
+</nav>
+
+<!-- Main -->
+<main class="main">
+  <div class="page-header">
+    <h1 class="page-title">訂單列表 <span>✦</span></h1>
+    <a href="/admin/print" class="btn btn-primary">🖨️ 大批列印</a>
+  </div>
+
+  <!-- Stats -->
+  {% set total    = orders | length %}
+  {% set pending  = orders | selectattr('status', 'equalto', '待處理') | list | length %}
+  {% set analyzed = orders | selectattr('status', 'equalto', '分析完成') | list | length %}
+  {% set done     = orders | selectattr('status', 'equalto', '文案完成') | list | length %}
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="num">{{ total }}</div>
+      <div class="label">全部訂單</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">{{ pending }}</div>
+      <div class="label"><span class="dot" style="background:var(--warn)"></span>待處理</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">{{ analyzed }}</div>
+      <div class="label"><span class="dot" style="background:var(--success)"></span>分析完成</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">{{ done }}</div>
+      <div class="label"><span class="dot" style="background:#6060c0"></span>文案完成</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>客人</th>
+          <th>生日</th>
+          <th>心願</th>
+          <th>填單時間</th>
+          <th>狀態</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if orders %}
+          {% for o in orders %}
+          <tr>
+            <td><span class="order-id">#{{ o.id }}</span></td>
+            <td>{{ o.name }}</td>
+            <td>{{ o.birthday }}</td>
+            <td><span class="wish-tag">{{ o.wish_main[:6] if o.wish_main else '—' }}</span></td>
+            <td style="color:var(--muted); font-size:.82rem;">{{ o.created_at }}</td>
+            <td>
+              {% if o.status == '待處理' %}
+                <span class="badge badge-pending">待處理</span>
+              {% elif o.status == '分析完成' %}
+                <span class="badge badge-analyzed">分析完成</span>
+              {% elif o.status == '文案完成' %}
+                <span class="badge badge-done">文案完成</span>
+              {% else %}
+                <span class="badge badge-pending">{{ o.status }}</span>
+              {% endif %}
+            </td>
+            <td><a href="/admin/order/{{ o.id }}" class="action-link">查看詳細 →</a></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <span class="icon">🎂</span>
+                <p>還沒有訂單，等待客人填單中…</p>
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>食材管理 ✦ 八字蛋糕後台</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+    :root {
+      --sand:    #f5ede0;
+      --cream:   #fdf8f2;
+      --brown:   #4a2c1a;
+      --caramel: #c97a5a;
+      --soft:    #e8d0bc;
+      --muted:   #9a7060;
+      --success: #7aab72;
+      --warn:    #e0a040;
+      --danger:  #d06050;
+      --sidebar: 220px;
+      --wood:    #4a7c36;  --wood-bg: #eaf3de;
+      --fire:    #c04030;  --fire-bg: #faecea;
+      --earth:   #8a5a20;  --earth-bg: #faeeda;
+      --metal:   #606060;  --metal-bg: #f1efe8;
+      --water:   #2060a0;  --water-bg: #e6f1fb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: var(--cream);
+      color: var(--brown);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar); min-height: 100vh;
+      background: var(--brown);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; z-index: 100;
+    }
+    .sidebar-logo { padding: 28px 20px 20px; border-bottom: 1px solid rgba(255,255,255,.1); text-align: center; }
+    .sidebar-logo .icon { font-size: 2rem; display: block; }
+    .sidebar-logo h2 { font-family: 'Noto Serif TC', serif; font-size: .9rem; color: var(--sand); margin-top: 6px; letter-spacing: .1em; }
+    .sidebar-nav { padding: 16px 0; flex: 1; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px; color: rgba(255,255,255,.65); text-decoration: none;
+      font-size: .88rem; transition: all .2s; border-left: 3px solid transparent;
+    }
+    .nav-item:hover { color: #fff; background: rgba(255,255,255,.06); }
+    .nav-item.active { color: var(--sand); background: rgba(255,255,255,.1); border-left-color: var(--caramel); font-weight: 700; }
+    .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+    .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,.1); font-size: .75rem; color: rgba(255,255,255,.3); }
+
+    /* ── Main ── */
+    .main { margin-left: var(--sidebar); flex: 1; padding: 32px 36px; }
+
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .page-title { font-family: 'Noto Serif TC', serif; font-size: 1.4rem; color: var(--brown); }
+    .page-title span { color: var(--caramel); }
+
+    /* ── Card ── */
+    .card {
+      background: #fff; border-radius: 16px;
+      border: 1px solid var(--soft); padding: 24px 26px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: .78rem; font-weight: 700; color: var(--caramel);
+      letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── 新增區 ── */
+    .add-form { display: flex; flex-direction: column; gap: 14px; }
+
+    .form-row { display: flex; gap: 12px; align-items: flex-end; }
+
+    label.field-label {
+      font-size: .82rem; color: var(--muted); display: block; margin-bottom: 5px; font-weight: 600;
+    }
+    input[type="text"], select, textarea {
+      width: 100%; padding: 10px 14px;
+      border: 1.5px solid var(--soft); border-radius: 10px;
+      font-size: .9rem; color: var(--brown); background: #fffaf8;
+      outline: none; transition: border-color .2s; font-family: inherit;
+    }
+    input[type="text"]:focus, select:focus, textarea:focus {
+      border-color: var(--caramel); background: #fff;
+    }
+
+    .type-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .type-chip {
+      padding: 7px 14px; border-radius: 20px;
+      border: 1.5px solid var(--soft); background: var(--cream);
+      font-size: .82rem; color: var(--brown); cursor: pointer;
+      transition: all .15s; user-select: none;
+    }
+    .type-chip:hover { border-color: var(--caramel); }
+    .type-chip.selected { background: var(--caramel); color: #fff; border-color: var(--caramel); font-weight: 700; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 20px; border-radius: 10px;
+      font-size: .88rem; font-weight: 700;
+      cursor: pointer; border: none; font-family: inherit;
+      transition: opacity .2s, transform .1s; white-space: nowrap;
+    }
+    .btn:hover { opacity: .88; }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: var(--caramel); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-ghost   { background: var(--soft); color: var(--brown); }
+    .btn-danger  { background: var(--danger); color: #fff; }
+    .btn-sm      { padding: 6px 12px; font-size: .78rem; }
+
+    /* ── 分析結果卡 ── */
+    .result-panel {
+      display: none;
+      background: var(--sand);
+      border: 1.5px solid var(--soft);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin-top: 14px;
+    }
+    .result-panel.visible { display: block; }
+    .result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .result-name { font-size: 1.1rem; font-weight: 700; color: var(--brown); }
+
+    .wuxing-badge {
+      display: inline-block; padding: 3px 12px;
+      border-radius: 20px; font-size: .8rem; font-weight: 700; margin-right: 4px;
+    }
+    .wx-木 { background: var(--wood-bg); color: var(--wood); }
+    .wx-火 { background: var(--fire-bg); color: var(--fire); }
+    .wx-土 { background: var(--earth-bg); color: var(--earth); }
+    .wx-金 { background: var(--metal-bg); color: var(--metal); }
+    .wx-水 { background: var(--water-bg); color: var(--water); }
+
+    .result-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0 16px;
+    }
+    .result-cell { background: #fff; border-radius: 8px; padding: 10px 12px; }
+    .result-cell .rlabel { font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
+    .result-cell .rval   { font-size: .85rem; color: var(--brown); }
+
+    /* ── 可編輯欄位（分析後） ── */
+    .edit-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 12px 0; }
+    .edit-field label { font-size: .75rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    .edit-field select, .edit-field input {
+      padding: 7px 10px; font-size: .82rem;
+    }
+
+    .result-actions { display: flex; gap: 10px; margin-top: 4px; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: none; width: 15px; height: 15px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading .spinner { display: inline-block; }
+    .loading .btn-text { display: none; }
+
+    /* ── 食材列表 ── */
+    .toolbar {
+      display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .search-box {
+      flex: 1; min-width: 160px; max-width: 260px;
+      padding: 8px 14px; border: 1.5px solid var(--soft);
+      border-radius: 8px; font-size: .85rem;
+      outline: none; transition: border-color .2s;
+    }
+    .search-box:focus { border-color: var(--caramel); }
+
+    .filter-wx {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 5px 12px; border-radius: 16px; border: 1.5px solid var(--soft);
+      font-size: .78rem; cursor: pointer; background: var(--cream);
+      transition: all .15s; font-family: inherit; color: var(--brown);
+    }
+    .filter-btn.active { font-weight: 700; }
+    .filter-btn[data-wx="全部"].active  { background: var(--brown); color: #fff; border-color: var(--brown); }
+    .filter-btn[data-wx="木"].active    { background: var(--wood-bg); color: var(--wood); border-color: var(--wood); }
+    .filter-btn[data-wx="火"].active    { background: var(--fire-bg); color: var(--fire); border-color: var(--fire); }
+    .filter-btn[data-wx="土"].active    { background: var(--earth-bg); color: var(--earth); border-color: var(--earth); }
+    .filter-btn[data-wx="金"].active    { background: var(--metal-bg); color: var(--metal); border-color: var(--metal); }
+    .filter-btn[data-wx="水"].active    { background: var(--water-bg); color: var(--water); border-color: var(--water); }
+
+    /* ── 食材列表（表格樣式） ── */
+    .ing-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .ing-table thead th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--sand);
+      font-size: .75rem; font-weight: 700;
+      color: var(--muted); letter-spacing: .06em;
+      border-bottom: 1px solid var(--soft);
+    }
+    .ing-table tbody tr {
+      border-bottom: 1px solid #f0e8e0;
+      transition: background .12s;
+    }
+    .ing-table tbody tr:last-child { border-bottom: none; }
+    .ing-table tbody tr:hover { background: #fdf6f0; }
+    .ing-table td {
+      padding: 9px 12px;
+      font-size: .86rem;
+      vertical-align: middle;
+    }
+    .td-name { font-weight: 700; color: var(--brown); white-space: nowrap; }
+    .td-detail { font-size: .76rem; color: var(--muted); }
+
+    .tag {
+      display: inline-block;
+      padding: 1px 8px; border-radius: 10px;
+      font-size: .71rem; font-weight: 600; margin-right: 3px;
+    }
+    .tag-usage  { background: var(--sand); color: var(--muted); }
+    .tag-season { background: #e8f4e8; color: #3a7a36; }
+
+    /* ── 編輯 Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(74,44,26,.45); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 20px;
+      padding: 28px 30px; width: 560px; max-width: 96vw;
+      max-height: 88vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(74,44,26,.2);
+    }
+    .modal-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.15rem; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-close {
+      background: none; border: none; font-size: 1.4rem;
+      cursor: pointer; color: var(--muted); padding: 0 4px;
+    }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .modal-field { display: flex; flex-direction: column; gap: 4px; }
+    .modal-field label { font-size: .78rem; color: var(--muted); font-weight: 600; }
+    .modal-field input, .modal-field select, .modal-field textarea {
+      padding: 8px 12px; font-size: .88rem;
+    }
+    .modal-field.full { grid-column: 1 / -1; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+    /* ── 空狀態 ── */
+    .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+    .empty-state .icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: var(--brown); color: #fff;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: .85rem; font-weight: 600;
+      opacity: 0; transform: translateY(10px);
+      transition: all .3s; z-index: 300;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── 提示說明 ── */
+    .hint-box {
+      background: var(--sand); border-radius: 10px;
+      padding: 12px 16px; font-size: .82rem;
+      color: var(--muted); line-height: 1.7; margin-bottom: 14px;
+    }
+    .hint-box strong { color: var(--brown); }
+
+    /* ── 模式 Tab ── */
+    .mode-tabs {
+      display: flex; gap: 0; margin-bottom: 18px;
+      border: 1.5px solid var(--soft); border-radius: 10px;
+      overflow: hidden; width: fit-content;
+    }
+    .mode-tab {
+      padding: 8px 20px; font-size: .85rem; font-weight: 600;
+      background: var(--cream); color: var(--muted);
+      border: none; cursor: pointer; font-family: inherit;
+      transition: all .15s; border-right: 1.5px solid var(--soft);
+    }
+    .mode-tab:last-child { border-right: none; }
+    .mode-tab:hover { background: var(--sand); color: var(--brown); }
+    .mode-tab.active { background: var(--caramel); color: #fff; }
+
+    /* ── 手動表單 ── */
+    .manual-form { display: flex; flex-direction: column; gap: 14px; }
+    .manual-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .manual-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .manual-field { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🎂</span>
+    <h2>八字蛋糕後台</h2>
+  </div>
+  <div class="sidebar-nav">
+    <a href="/admin" class="nav-item">
+      <span class="nav-icon">📋</span> 訂單列表
+    </a>
+    <a href="/admin/ingredients" class="nav-item active">
+      <span class="nav-icon">🌿</span> 食材管理
+    </a>
+    <a href="/admin/print" class="nav-item">
+      <span class="nav-icon">🖨️</span> 大批列印
+    </a>
+    <a href="/" class="nav-item">
+      <span class="nav-icon">📝</span> 客戶填單頁
+    </a>
+  </div>
+  <div class="sidebar-footer">v1.0 ✦ 八字烘焙系統</div>
+</nav>
+
+<main class="main">
+  <div class="page-header">
+    <h1 class="page-title">食材管理 <span>✦</span></h1>
+  </div>
+
+  <!-- ── 新增食材 ── -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">✦ 新增食材</div>
+
+    <!-- Tab 切換 -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabAI" onclick="switchMode('ai')">⚡ AI 判斷五行</button>
+      <button class="mode-tab" id="tabManual" onclick="switchMode('manual')">✍️ 手動新增</button>
+    </div>
+
+    <!-- ── AI 模式 ── -->
+    <div id="modeAI">
+      <div class="hint-box">
+        輸入 <strong>食材名稱</strong>（如：百香果）或<strong>描述</strong>（如：淡紫色泥狀底色），Claude 會自動判斷五行。
+        先選用途類型可讓判斷更精準。
+      </div>
+      <div class="add-form">
+        <div>
+          <label class="field-label">用途類型（選填，可複選）</label>
+          <div class="type-chips" id="typeChips">
+            <div class="type-chip" data-val="底色" onclick="toggleType(this)">🎨 底色</div>
+            <div class="type-chip" data-val="夾層" onclick="toggleType(this)">🌿 夾層</div>
+            <div class="type-chip" data-val="秀面" onclick="toggleType(this)">✨ 秀面</div>
+            <div class="type-chip" data-val="點綴" onclick="toggleType(this)">🌸 點綴</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div style="flex:1">
+            <label class="field-label">食材名稱或描述</label>
+            <input type="text" id="ingredientInput"
+              placeholder="例：百香果 ／ 淡紫色泥狀底色 ／ 帶奶香的白色果凍">
+          </div>
+          <button class="btn btn-primary" id="btnClassify" onclick="classifyIngredient()" style="margin-bottom:1px">
+            <span class="spinner"></span>
+            <span class="btn-text">⚡ 判斷五行</span>
+          </button>
+        </div>
+
+        <!-- 結果面板 -->
+        <div class="result-panel" id="resultPanel">
+          <div class="result-header">
+            <div class="result-name" id="rName">—</div>
+            <div id="rBadges"></div>
+          </div>
+          <div class="edit-fields">
+            <div class="edit-field">
+              <label>主五行</label>
+              <select id="rMain">
+                <option value="木">🌿 木</option>
+                <option value="火">🔥 火</option>
+                <option value="土">🏔️ 土</option>
+                <option value="金">✨ 金</option>
+                <option value="水">💧 水</option>
+              </select>
+            </div>
+            <div class="edit-field">
+              <label>副五行</label>
+              <select id="rSub">
+                <option value="">— 無 —</option>
+                <option value="木">🌿 木</option>
+                <option value="火">🔥 火</option>
+                <option value="土">🏔️ 土</option>
+                <option value="金">✨ 金</option>
+                <option value="水">💧 水</option>
+              </select>
+            </div>
+            <div class="edit-field">
+              <label>用途</label>
+              <input type="text" id="rUsage" placeholder="底色,夾層,秀面">
+            </div>
+            <div class="edit-field">
+              <label>季節</label>
+              <input type="text" id="rSeason" placeholder="常備,春,夏">
+            </div>
+            <div class="edit-field">
+              <label>食材名稱（可改）</label>
+              <input type="text" id="rNameEdit">
+            </div>
+            <div class="edit-field">
+              <label>備注</label>
+              <input type="text" id="rNote">
+            </div>
+          </div>
+          <div class="result-grid">
+            <div class="result-cell"><div class="rlabel">顏色分析</div><div class="rval" id="rColor">—</div></div>
+            <div class="result-cell"><div class="rlabel">氣味分析</div><div class="rval" id="rSmell">—</div></div>
+            <div class="result-cell"><div class="rlabel">屬性分析</div><div class="rval" id="rAttr">—</div></div>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-success" id="btnSave" onclick="saveIngredient()">
+              <span class="spinner"></span>
+              <span class="btn-text">✅ 寫入食材庫</span>
+            </button>
+            <button class="btn btn-ghost" onclick="discardResult()">略過</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 手動模式 ── -->
+    <div id="modeManual" style="display:none">
+      <div class="hint-box">
+        直接填寫所有欄位，不需要呼叫 AI。適合已用其他工具確認五行屬性的食材。
+      </div>
+      <div class="manual-form">
+        <div class="manual-row2">
+          <div class="manual-field">
+            <label class="field-label">食材名稱 <span style="color:var(--danger)">*</span></label>
+            <input type="text" id="mfName" placeholder="例：椰子果凍">
+          </div>
+          <div class="manual-field">
+            <label class="field-label">主五行 <span style="color:var(--danger)">*</span></label>
+            <select id="mfMain">
+              <option value="">── 請選擇 ──</option>
+              <option value="木">🌿 木</option>
+              <option value="火">🔥 火</option>
+              <option value="土">🏔️ 土</option>
+              <option value="金">✨ 金</option>
+              <option value="水">💧 水</option>
+            </select>
+          </div>
+          <div class="manual-field">
+            <label class="field-label">副五行</label>
+            <select id="mfSub">
+              <option value="">— 無 —</option>
+              <option value="木">🌿 木</option>
+              <option value="火">🔥 火</option>
+              <option value="土">🏔️ 土</option>
+              <option value="金">✨ 金</option>
+              <option value="水">💧 水</option>
+            </select>
+          </div>
+        </div>
+        <div class="manual-row2">
+          <div class="manual-field">
+            <label class="field-label">用途（可複選）</label>
+            <div class="type-chips" id="mfTypeChips" style="margin-top:4px">
+              <div class="type-chip" data-val="底色" onclick="toggleManualType(this)">🎨 底色</div>
+              <div class="type-chip" data-val="夾層" onclick="toggleManualType(this)">🌿 夾層</div>
+              <div class="type-chip" data-val="秀面" onclick="toggleManualType(this)">✨ 秀面</div>
+              <div class="type-chip" data-val="點綴" onclick="toggleManualType(this)">🌸 點綴</div>
+            </div>
+          </div>
+          <div class="manual-field">
+            <label class="field-label">季節（可複選）</label>
+            <div class="type-chips" id="mfSeasonChips" style="margin-top:4px">
+              <div class="type-chip" data-val="常備" onclick="toggleSeasonChip(this)">常備</div>
+              <div class="type-chip" data-val="春" onclick="toggleSeasonChip(this)">🌸 春</div>
+              <div class="type-chip" data-val="夏" onclick="toggleSeasonChip(this)">☀️ 夏</div>
+              <div class="type-chip" data-val="秋" onclick="toggleSeasonChip(this)">🍂 秋</div>
+              <div class="type-chip" data-val="冬" onclick="toggleSeasonChip(this)">❄️ 冬</div>
+            </div>
+          </div>
+        </div>
+        <div class="manual-row3">
+          <div class="manual-field">
+            <label class="field-label">顏色分析</label>
+            <input type="text" id="mfColor" placeholder="例：白色透明">
+          </div>
+          <div class="manual-field">
+            <label class="field-label">氣味分析</label>
+            <input type="text" id="mfSmell" placeholder="例：清淡椰香">
+          </div>
+          <div class="manual-field">
+            <label class="field-label">屬性分析</label>
+            <input type="text" id="mfAttr" placeholder="例：涼性滋潤">
+          </div>
+        </div>
+        <div class="manual-field" style="margin-top:4px">
+          <label class="field-label">備注</label>
+          <input type="text" id="mfNote" placeholder="選填">
+        </div>
+        <div style="margin-top:16px; display:flex; gap:10px; align-items:center">
+          <button class="btn btn-success" id="btnManualSave" onclick="saveManual()">
+            <span class="spinner"></span>
+            <span class="btn-text">✅ 新增到食材庫</span>
+          </button>
+          <button class="btn btn-ghost" onclick="resetManual()">清空</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 食材列表 ── -->
+  <div class="card">
+    <div class="card-title">✦ 食材庫管理</div>
+
+    <div class="toolbar">
+      <input class="search-box" type="text" id="searchBox"
+        placeholder="搜尋食材名稱…" oninput="filterList()">
+      <div class="filter-wx">
+        <button class="filter-btn active" data-wx="全部" onclick="setFilter(this)">全部</button>
+        <button class="filter-btn" data-wx="木" onclick="setFilter(this)">🌿 木</button>
+        <button class="filter-btn" data-wx="火" onclick="setFilter(this)">🔥 火</button>
+        <button class="filter-btn" data-wx="土" onclick="setFilter(this)">🏔️ 土</button>
+        <button class="filter-btn" data-wx="金" onclick="setFilter(this)">✨ 金</button>
+        <button class="filter-btn" data-wx="水" onclick="setFilter(this)">💧 水</button>
+      </div>
+      <span id="usageFilterHint" style="display:none;align-items:center;gap:6px;padding:4px 12px;background:var(--sand);border-radius:16px;font-size:.78rem;color:var(--muted);">
+        篩選：—
+        <button onclick="clearUsageFilter()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;line-height:1;padding:0">✕</button>
+      </span>
+      <button class="btn btn-ghost btn-sm" onclick="loadIngredients()" style="margin-left:auto">↺ 重新整理</button>
+    </div>
+
+    <div id="ingListWrap">
+      <table class="ing-table" id="ingTable" style="display:none">
+        <thead>
+          <tr>
+            <th style="width:110px">食材名稱</th>
+            <th style="width:140px">五行</th>
+            <th style="width:160px">用途</th>
+            <th style="width:100px">季節</th>
+            <th>分析摘要</th>
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody id="ingTbody"></tbody>
+      </table>
+      <div class="empty-state" id="ingEmpty"><span class="icon">🌿</span><p>載入中…</p></div>
+    </div>
+  </div>
+</main>
+
+<!-- ── 編輯 Modal ── -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span>✦ 編輯食材</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-grid">
+      <div class="modal-field">
+        <label>食材名稱</label>
+        <input type="text" id="mName" readonly style="background:#f5f5f0;cursor:not-allowed">
+      </div>
+      <div class="modal-field">
+        <label>主五行</label>
+        <select id="mMain">
+          <option value="木">🌿 木</option>
+          <option value="火">🔥 火</option>
+          <option value="土">🏔️ 土</option>
+          <option value="金">✨ 金</option>
+          <option value="水">💧 水</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>副五行</label>
+        <select id="mSub">
+          <option value="">— 無 —</option>
+          <option value="木">🌿 木</option>
+          <option value="火">🔥 火</option>
+          <option value="土">🏔️ 土</option>
+          <option value="金">✨ 金</option>
+          <option value="水">💧 水</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>用途（逗號分隔）</label>
+        <input type="text" id="mUsage" placeholder="底色,夾層,秀面,點綴">
+      </div>
+      <div class="modal-field">
+        <label>季節</label>
+        <input type="text" id="mSeason" placeholder="常備,春,夏,秋,冬">
+      </div>
+      <div class="modal-field">
+        <label>顏色分析</label>
+        <input type="text" id="mColor">
+      </div>
+      <div class="modal-field">
+        <label>氣味分析</label>
+        <input type="text" id="mSmell">
+      </div>
+      <div class="modal-field">
+        <label>屬性分析</label>
+        <input type="text" id="mAttr">
+      </div>
+      <div class="modal-field full">
+        <label>備注</label>
+        <input type="text" id="mNote">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="deleteIngredient()">🗑 刪除</button>
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="btnSaveEdit" onclick="saveEdit()">
+        <span class="spinner"></span>
+        <span class="btn-text">儲存</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── 狀態 ────────────────────────────────────────────────────────
+  let allIngredients = [];
+  let currentFilter  = "全部";
+  let currentUsageFilter = "";
+  let pendingResult  = null;
+  let editingName    = null;
+
+  // ── 用途複選 ────────────────────────────────────────────────────
+  function toggleType(el) {
+    el.classList.toggle('selected');
+    // 選了單一用途時，自動切篩選器到對應五行類別（只切換文字篩選）
+    // 這裡改為：讓列表自動篩出有此用途的食材
+    const types = getSelectedTypes();
+    if (types.length === 1) {
+      setFilterByUsage(types[0]);
+    } else if (types.length === 0) {
+      // 全部取消選擇時，重置篩選
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.filter-btn[data-wx="全部"]').classList.add('active');
+      currentFilter = '全部';
+      currentUsageFilter = '';
+      renderList();
+    }
+  }
+
+  function setFilterByUsage(usage) {
+    currentUsageFilter = usage;
+    updateUsageHint();
+    renderList();
+  }
+
+  function getSelectedTypes() {
+    return [...document.querySelectorAll('.type-chip.selected')].map(el => el.dataset.val);
+  }
+
+  // ── 五行判斷 ────────────────────────────────────────────────────
+  async function classifyIngredient() {
+    const input = document.getElementById('ingredientInput').value.trim();
+    if (!input) { showToast('請輸入食材名稱或描述'); return; }
+
+    const types = getSelectedTypes();
+    const btn   = document.getElementById('btnClassify');
+    btn.classList.add('loading'); btn.disabled = true;
+    hideResult();
+
+    try {
+      const res = await fetch('/admin/api/classify', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name: input, hint_types: types })
+      });
+      const data = await res.json();
+      if (data.error) { showToast('錯誤：' + data.error); return; }
+      renderResult(data);
+    } catch(e) {
+      showToast('連線失敗：' + e.message);
+    } finally {
+      btn.classList.remove('loading'); btn.disabled = false;
+    }
+  }
+
+  function renderResult(d) {
+    pendingResult = d;
+
+    document.getElementById('rName').textContent = d.食材名稱;
+    document.getElementById('rNameEdit').value   = d.食材名稱;
+    document.getElementById('rMain').value        = d.主五行 || '木';
+    document.getElementById('rSub').value         = d.副五行 || '';
+    document.getElementById('rUsage').value       = d.用途 || '';
+    document.getElementById('rSeason').value      = d.季節 || '';
+    document.getElementById('rColor').textContent = d.顏色分析 || '—';
+    document.getElementById('rSmell').textContent = d.氣味分析 || '—';
+    document.getElementById('rAttr').textContent  = d.屬性分析 || '—';
+    document.getElementById('rNote').value        = d.備注 || '';
+
+    const badges = document.getElementById('rBadges');
+    badges.innerHTML = wuxingBadge(d.主五行) + (d.副五行 ? wuxingBadge(d.副五行) : '');
+
+    document.getElementById('resultPanel').classList.add('visible');
+  }
+
+  function hideResult() {
+    document.getElementById('resultPanel').classList.remove('visible');
+    pendingResult = null;
+  }
+
+  function discardResult() {
+    hideResult();
+    document.getElementById('ingredientInput').value = '';
+  }
+
+  // ── 儲存 ────────────────────────────────────────────────────────
+  async function saveIngredient() {
+    if (!pendingResult) return;
+
+    // 從 UI 讀回最新值（師傅可能改過）
+    const payload = {
+      食材名稱: document.getElementById('rNameEdit').value.trim() || pendingResult.食材名稱,
+      主五行:   document.getElementById('rMain').value,
+      副五行:   document.getElementById('rSub').value,
+      用途:     document.getElementById('rUsage').value,
+      季節:     document.getElementById('rSeason').value,
+      顏色分析: document.getElementById('rColor').textContent,
+      氣味分析: document.getElementById('rSmell').textContent,
+      屬性分析: document.getElementById('rAttr').textContent,
+      備注:     document.getElementById('rNote').value,
+    };
+
+    const btn = document.getElementById('btnSave');
+    btn.classList.add('loading'); btn.disabled = true;
+
+    try {
+      const res = await fetch('/admin/api/ingredient/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'saved') {
+        showToast('✅ 已寫入食材庫：' + payload.食材名稱);
+        discardResult();
+        loadIngredients();
+      } else if (data.status === 'already_exists') {
+        showToast('⚠️ 食材已存在，請改名或直接編輯清單');
+      } else {
+        showToast('錯誤：' + (data.error || '未知'));
+      }
+    } catch(e) {
+      showToast('儲存失敗：' + e.message);
+    } finally {
+      btn.classList.remove('loading'); btn.disabled = false;
+    }
+  }
+
+  // ── 食材列表 ────────────────────────────────────────────────────
+  async function loadIngredients() {
+    try {
+      const res  = await fetch('/admin/api/ingredients');
+      const data = await res.json();
+      allIngredients = data;
+      renderList();
+    } catch(e) {
+      document.getElementById('ingList').innerHTML =
+        `<div class="empty-state"><span class="icon">⚠️</span><p>載入失敗</p></div>`;
+    }
+  }
+
+  function renderList() {
+    const query = document.getElementById('searchBox').value.toLowerCase();
+    let filtered = allIngredients.filter(r => {
+      const [name, main, sub, usage] = r;
+      const matchSearch = !query || (name || '').toLowerCase().includes(query);
+      const matchWx     = currentFilter === '全部' || main === currentFilter || sub === currentFilter;
+      const matchUsage  = !currentUsageFilter || (usage || '').includes(currentUsageFilter);
+      return matchSearch && matchWx && matchUsage;
+    });
+
+    const table  = document.getElementById('ingTable');
+    const empty  = document.getElementById('ingEmpty');
+    const tbody  = document.getElementById('ingTbody');
+
+    if (!filtered.length) {
+      table.style.display = 'none';
+      empty.innerHTML = '<span class="icon">🌿</span><p>沒有符合的食材</p>';
+      empty.style.display = '';
+      return;
+    }
+
+    empty.style.display = 'none';
+    table.style.display = '';
+
+    tbody.innerHTML = filtered.map(r => {
+      const [name, main, sub, usage, season, color, smell, attr, note] = r;
+      const usageTags = (usage || '').split(',').filter(Boolean)
+        .map(u => `<span class="tag tag-usage">${u.trim()}</span>`).join('');
+      const seasonTags = (season || '').split(',').filter(Boolean)
+        .map(s => `<span class="tag tag-season">${s.trim()}</span>`).join('');
+      const detail = [color && `顏色：${color}`, smell && `氣味：${smell}`, attr && `屬性：${attr}`]
+        .filter(Boolean).join('　') || '—';
+      return `<tr>
+        <td class="td-name">${name}</td>
+        <td>${wuxingBadge(main)}${sub ? wuxingBadge(sub) : ''}</td>
+        <td>${usageTags || '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${seasonTags || '<span style="color:var(--muted)">—</span>'}</td>
+        <td class="td-detail">${detail}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick='openEdit(${JSON.stringify(r)})'>✏️</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function filterList() { renderList(); }
+
+  function setFilter(el) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    currentFilter = el.dataset.wx;
+    // 手動點五行篩選時，清掉用途篩選
+    currentUsageFilter = '';
+    document.querySelectorAll('.type-chip').forEach(c => c.classList.remove('selected'));
+    updateUsageHint();
+    renderList();
+  }
+
+  function clearUsageFilter() {
+    currentUsageFilter = '';
+    document.querySelectorAll('.type-chip').forEach(c => c.classList.remove('selected'));
+    updateUsageHint();
+    renderList();
+  }
+
+  function updateUsageHint() {
+    const hint = document.getElementById('usageFilterHint');
+    if (!hint) return;
+    if (currentUsageFilter) {
+      hint.textContent = `正在篩選：${currentUsageFilter}`;
+      hint.style.display = 'inline-flex';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  // ── 編輯 Modal ───────────────────────────────────────────────────
+  function openEdit(row) {
+    const [name, main, sub, usage, season, color, smell, attr, note] = row;
+    editingName = name;
+    document.getElementById('mName').value   = name;
+    document.getElementById('mMain').value   = main || '木';
+    document.getElementById('mSub').value    = sub || '';
+    document.getElementById('mUsage').value  = usage || '';
+    document.getElementById('mSeason').value = season || '';
+    document.getElementById('mColor').value  = color || '';
+    document.getElementById('mSmell').value  = smell || '';
+    document.getElementById('mAttr').value   = attr || '';
+    document.getElementById('mNote').value   = note || '';
+    document.getElementById('editModal').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editingName = null;
+  }
+
+  async function saveEdit() {
+    if (!editingName) return;
+    const payload = {
+      食材名稱: editingName,
+      主五行:   document.getElementById('mMain').value,
+      副五行:   document.getElementById('mSub').value,
+      用途:     document.getElementById('mUsage').value,
+      季節:     document.getElementById('mSeason').value,
+      顏色分析: document.getElementById('mColor').value,
+      氣味分析: document.getElementById('mSmell').value,
+      屬性分析: document.getElementById('mAttr').value,
+      備注:     document.getElementById('mNote').value,
+    };
+
+    const btn = document.getElementById('btnSaveEdit');
+    btn.classList.add('loading'); btn.disabled = true;
+
+    try {
+      const res = await fetch('/admin/api/ingredient/update', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'updated') {
+        showToast('✅ 已儲存：' + editingName);
+        closeModal();
+        loadIngredients();
+      } else {
+        showToast('錯誤：' + (data.error || '未知'));
+      }
+    } catch(e) {
+      showToast('儲存失敗：' + e.message);
+    } finally {
+      btn.classList.remove('loading'); btn.disabled = false;
+    }
+  }
+
+  async function deleteIngredient() {
+    if (!editingName) return;
+    if (!confirm(`確定要刪除「${editingName}」嗎？此操作無法復原。`)) return;
+
+    try {
+      const res = await fetch('/admin/api/ingredient/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ 食材名稱: editingName })
+      });
+      const data = await res.json();
+      if (data.status === 'deleted') {
+        showToast('🗑 已刪除：' + editingName);
+        closeModal();
+        loadIngredients();
+      } else {
+        showToast('刪除失敗：' + (data.error || '未知'));
+      }
+    } catch(e) {
+      showToast('刪除失敗：' + e.message);
+    }
+  }
+
+  // ── 模式切換 ─────────────────────────────────────────────────────
+  function switchMode(mode) {
+    document.getElementById('modeAI').style.display     = mode === 'ai'     ? '' : 'none';
+    document.getElementById('modeManual').style.display = mode === 'manual' ? '' : 'none';
+    document.getElementById('tabAI').classList.toggle('active',     mode === 'ai');
+    document.getElementById('tabManual').classList.toggle('active', mode === 'manual');
+  }
+
+  // ── 手動表單工具 ─────────────────────────────────────────────────
+  function toggleManualType(el) { el.classList.toggle('selected'); }
+  function toggleSeasonChip(el) { el.classList.toggle('selected'); }
+
+  function getManualTypes() {
+    return [...document.querySelectorAll('#mfTypeChips .type-chip.selected')].map(e => e.dataset.val);
+  }
+  function getManualSeasons() {
+    return [...document.querySelectorAll('#mfSeasonChips .type-chip.selected')].map(e => e.dataset.val);
+  }
+
+  function resetManual() {
+    document.getElementById('mfName').value  = '';
+    document.getElementById('mfMain').value  = '';
+    document.getElementById('mfSub').value   = '';
+    document.getElementById('mfColor').value = '';
+    document.getElementById('mfSmell').value = '';
+    document.getElementById('mfAttr').value  = '';
+    document.getElementById('mfNote').value  = '';
+    document.querySelectorAll('#mfTypeChips .type-chip, #mfSeasonChips .type-chip')
+      .forEach(c => c.classList.remove('selected'));
+  }
+
+  async function saveManual() {
+    const name = document.getElementById('mfName').value.trim();
+    const main = document.getElementById('mfMain').value;
+    if (!name) { showToast('請輸入食材名稱'); return; }
+    if (!main) { showToast('請選擇主五行'); return; }
+
+    const payload = {
+      食材名稱: name,
+      主五行:   main,
+      副五行:   document.getElementById('mfSub').value,
+      用途:     getManualTypes().join(','),
+      季節:     getManualSeasons().join(','),
+      顏色分析: document.getElementById('mfColor').value.trim(),
+      氣味分析: document.getElementById('mfSmell').value.trim(),
+      屬性分析: document.getElementById('mfAttr').value.trim(),
+      備注:     document.getElementById('mfNote').value.trim(),
+    };
+
+    const btn = document.getElementById('btnManualSave');
+    btn.classList.add('loading'); btn.disabled = true;
+
+    try {
+      const res = await fetch('/admin/api/ingredient/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'saved') {
+        showToast('✅ 已新增：' + name);
+        resetManual();
+        loadIngredients();
+      } else if (data.status === 'already_exists') {
+        showToast('⚠️ 「' + name + '」已存在，可在下方列表編輯');
+      } else {
+        showToast('錯誤：' + (data.error || '未知'));
+      }
+    } catch(e) {
+      showToast('儲存失敗：' + e.message);
+    } finally {
+      btn.classList.remove('loading'); btn.disabled = false;
+    }
+  }
+
+  // ── 工具 ────────────────────────────────────────────────────────
+  const WX_EMOJI = { 木:'🌿', 火:'🔥', 土:'🏔️', 金:'✨', 水:'💧' };
+  function wuxingBadge(wx) {
+    if (!wx) return '';
+    return `<span class="wuxing-badge wx-${wx}">${WX_EMOJI[wx]||''} ${wx}</span>`;
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // Enter 鍵送出
+  document.getElementById('ingredientInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') classifyIngredient();
+  });
+
+  // 點空白關 Modal
+  document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // 初始載入
+  loadIngredients();
+</script>
+</body>
+</html>

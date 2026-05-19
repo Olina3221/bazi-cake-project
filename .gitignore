@@ -1,0 +1,9 @@
+service_account.json
+.env
+__pycache__/
+*.pyc
+*.pyo
+bazi_cake.xlsx
+.DS_Store
+API_Key.txt
+bazi-cake-7f05b93403ea.json

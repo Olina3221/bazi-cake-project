@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>🖨️ 小卡列印 ✦ 八字蛋糕</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+    :root {
+      --sand:    #f5ede0;
+      --cream:   #fdf8f2;
+      --brown:   #4a2c1a;
+      --caramel: #c97a5a;
+      --soft:    #e8d0bc;
+      --muted:   #9a7060;
+      --sidebar: 220px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── 螢幕顯示 ── */
+    @media screen {
+      body {
+        font-family: 'Noto Sans TC', sans-serif;
+        background: var(--cream);
+        color: var(--brown);
+        display: flex;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        width: var(--sidebar); min-height: 100vh;
+        background: var(--brown); display: flex; flex-direction: column;
+        position: fixed; top: 0; left: 0; z-index: 100;
+      }
+      .sidebar-logo { padding: 28px 20px 20px; border-bottom: 1px solid rgba(255,255,255,.1); text-align: center; }
+      .sidebar-logo .icon { font-size: 2rem; display: block; }
+      .sidebar-logo h2 { font-family: 'Noto Serif TC', serif; font-size: .9rem; color: var(--sand); margin-top: 6px; letter-spacing: .1em; }
+      .sidebar-nav { padding: 16px 0; flex: 1; }
+      .nav-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 20px; color: rgba(255,255,255,.65); text-decoration: none;
+        font-size: .88rem; transition: all .2s; border-left: 3px solid transparent;
+      }
+      .nav-item:hover { color: #fff; background: rgba(255,255,255,.06); }
+      .nav-item.active { color: var(--sand); background: rgba(255,255,255,.1); border-left-color: var(--caramel); font-weight: 700; }
+      .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+      .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,.1); font-size: .75rem; color: rgba(255,255,255,.3); }
+
+      .main {
+        margin-left: var(--sidebar);
+        flex: 1;
+        padding: 32px 36px;
+      }
+
+      .screen-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 24px;
+      }
+      .page-title { font-family: 'Noto Serif TC', serif; font-size: 1.4rem; }
+
+      .btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 20px; border-radius: 10px; font-size: .88rem; font-weight: 700;
+        cursor: pointer; border: none; font-family: inherit;
+        text-decoration: none; transition: opacity .2s;
+      }
+      .btn:hover { opacity: .85; }
+      .btn-primary { background: var(--caramel); color: #fff; }
+      .btn-ghost   { background: var(--soft); color: var(--brown); }
+
+      .print-info {
+        background: #fff; border: 1px solid var(--soft); border-radius: 12px;
+        padding: 14px 20px; margin-bottom: 24px;
+        font-size: .85rem; color: var(--muted);
+        display: flex; gap: 24px; align-items: center;
+      }
+      .print-info strong { color: var(--brown); }
+
+      /* 篩選勾選 */
+      .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+      .filter-chip {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 14px; border-radius: 20px;
+        border: 1.5px solid var(--soft); background: var(--cream);
+        font-size: .82rem; cursor: pointer; transition: all .15s;
+      }
+      .filter-chip input { cursor: pointer; }
+      .filter-chip:hover { border-color: var(--caramel); }
+
+      /* 預覽區 */
+      .preview-label {
+        font-size: .78rem; font-weight: 700; color: var(--caramel);
+        letter-spacing: .1em; text-transform: uppercase;
+        margin-bottom: 14px;
+      }
+
+      .preview-page {
+        background: #fff;
+        border: 1px solid var(--soft);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        width: 794px; /* A4 寬度 96dpi */
+      }
+      .page-num-label {
+        font-size: .75rem; color: var(--muted);
+        margin-bottom: 12px; text-align: right;
+      }
+
+      .empty-state {
+        text-align: center; padding: 60px 20px; color: var(--muted);
+      }
+      .empty-state .icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+    }
+
+    /* ── 列印共用 card grid ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .cake-card {
+      border: 1px solid #d0b8a0;
+      padding: 20px 22px;
+      background: linear-gradient(135deg, #fdf6ec 0%, #fceadc 100%);
+      page-break-inside: avoid;
+      position: relative;
+      min-height: 170px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .cake-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .cake-card-meta {
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+
+    .cake-card-name {
+      font-size: .82rem;
+      font-weight: 700;
+      color: #4a2c1a;
+    }
+
+    .cake-card-birthday {
+      font-size: .72rem;
+      color: #9a7060;
+      margin-top: 1px;
+    }
+
+    .cake-card-order {
+      font-size: .7rem;
+      color: #c97a5a;
+      font-weight: 700;
+      background: rgba(201,122,90,.12);
+      padding: 2px 8px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+
+    .cake-card-divider {
+      border: none;
+      border-top: 1px solid rgba(201,122,90,.3);
+      margin: 8px 0;
+    }
+
+    .cake-card-text {
+      font-family: 'Noto Serif TC', serif;
+      font-size: .82rem;
+      line-height: 1.85;
+      color: #3a2015;
+      white-space: pre-wrap;
+      flex: 1;
+    }
+
+    .cake-card-corner {
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-size: .65rem;
+      color: rgba(201,122,90,.5);
+      font-family: 'Noto Serif TC', serif;
+    }
+
+    /* ── 列印模式 ── */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 10mm 12mm;
+      }
+
+      body { display: block; background: #fff; }
+      .sidebar, .main > *:not(.print-area) { display: none !important; }
+      .print-area { display: block !important; margin: 0; padding: 0; }
+
+      .print-page {
+        width: 100%;
+        display: grid;
+        grid-template-rows: repeat(3, 1fr);
+        height: 277mm;
+        page-break-after: always;
+        break-after: page;
+      }
+      .print-page:last-child { page-break-after: auto; break-after: auto; }
+
+      .cards-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        height: 100%;
+      }
+
+      .cake-card {
+        border: 0.5pt solid #c8a890;
+        padding: 14px 16px;
+        min-height: unset;
+      }
+
+      .cake-card-text { font-size: .78rem; line-height: 1.8; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar（螢幕用） -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🎂</span>
+    <h2>八字蛋糕後台</h2>
+  </div>
+  <div class="sidebar-nav">
+    <a href="/admin" class="nav-item">
+      <span class="nav-icon">📋</span> 訂單列表
+    </a>
+    <a href="/admin/ingredients" class="nav-item">
+      <span class="nav-icon">🌿</span> 食材管理
+    </a>
+    <a href="/admin/print" class="nav-item active">
+      <span class="nav-icon">🖨️</span> 大批列印
+    </a>
+    <a href="/" class="nav-item">
+      <span class="nav-icon">📝</span> 客戶填單頁
+    </a>
+  </div>
+  <div class="sidebar-footer">v1.0 ✦ 八字烘焙系統</div>
+</nav>
+
+<main class="main">
+  <!-- 螢幕顯示的操作區 -->
+  <div class="screen-header">
+    <h1 class="page-title">大批列印小卡</h1>
+    <div style="display:flex;gap:10px;">
+      <a href="/admin" class="btn btn-ghost">← 返回列表</a>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ 列印 / 存 PDF</button>
+    </div>
+  </div>
+
+  {% if orders %}
+  <div class="print-info">
+    <div>共 <strong>{{ orders | length }}</strong> 張小卡</div>
+    <div>A4 每頁 <strong>6 張</strong>（2 欄 × 3 列）</div>
+    <div>建議列印：<strong>原始尺寸、雙面</strong></div>
+  </div>
+
+  <div class="preview-label">✦ 列印預覽</div>
+
+  <!-- 列印區塊（螢幕＋列印共用） -->
+  <div class="print-area">
+    {% set ns = namespace(page=[], page_num=1) %}
+    {% for order in orders %}
+      {% set _ = ns.page.append(order) %}
+      {% if ns.page | length == 6 or loop.last %}
+        <!-- 每 6 張一頁 -->
+        <div class="print-page">
+          <div class="cards-grid">
+            {% for o in ns.page %}
+            <div class="cake-card">
+              <div class="cake-card-header">
+                <div class="cake-card-meta">
+                  <div class="cake-card-name">{{ o.name }}</div>
+                  <div class="cake-card-birthday">{{ o.birthday }}</div>
+                </div>
+                <div class="cake-card-order">#{{ o.id }}</div>
+              </div>
+              <hr class="cake-card-divider">
+              <div class="cake-card-text">{{ o.card_text }}</div>
+              <div class="cake-card-corner">✦</div>
+            </div>
+            {% endfor %}
+            {# 補空白卡讓最後一頁對齊 #}
+            {% if ns.page | length < 6 %}
+              {% for i in range(6 - ns.page | length) %}
+              <div class="cake-card" style="background:transparent;border-color:transparent;"></div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        {% set ns.page = [] %}
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <span class="icon">🎂</span>
+    <p>目前沒有完成文案的訂單。<br>請先到訂單詳細頁完成八字分析與文案產生。</p>
+    <a href="/admin" style="display:inline-block;margin-top:16px;color:var(--caramel);font-weight:700;">← 返回訂單列表</a>
+  </div>
+  {% endif %}
+</main>
+
+</body>
+</html>
