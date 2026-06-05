@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>圖片管理 ✦ 萊點後台</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    :root{--sand:#f5ede0;--cream:#fdf8f2;--brown:#4a2c1a;--caramel:#c97a5a;--soft:#e8d0bc;--muted:#9a7060;--danger:#d06050;--sidebar:220px;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans TC',sans-serif;background:var(--cream);color:var(--brown);display:flex;min-height:100vh;}
+    .sidebar{width:var(--sidebar);min-height:100vh;background:var(--brown);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;}
+    .sidebar-logo{padding:28px 20px 20px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center;}
+    .sidebar-logo .icon{font-size:2rem;display:block;}
+    .sidebar-logo h2{font-family:'Noto Serif TC',serif;font-size:.9rem;color:var(--sand);margin-top:6px;letter-spacing:.1em;}
+    .sidebar-nav{padding:16px 0;flex:1;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.65);text-decoration:none;font-size:.88rem;transition:all .2s;border-left:3px solid transparent;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--sand);background:rgba(255,255,255,.1);border-left-color:var(--caramel);font-weight:700;}
+    .nav-icon{font-size:1.1rem;width:20px;text-align:center;}
+    .sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.1);font-size:.75rem;color:rgba(255,255,255,.3);}
+    .main{margin-left:var(--sidebar);flex:1;padding:32px 36px;}
+    .page-header{margin-bottom:28px;}
+    .page-title{font-family:'Noto Serif TC',serif;font-size:1.4rem;color:var(--brown);}
+    .page-title span{color:var(--caramel);}
+    .card{background:#fff;border-radius:16px;border:1px solid var(--soft);padding:24px 28px;margin-bottom:20px;}
+    .upload-area{border:2px dashed var(--soft);border-radius:12px;padding:36px;text-align:center;color:var(--muted);transition:border .2s;}
+    .upload-area:hover{border-color:var(--caramel);}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:.83rem;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:opacity .2s;font-family:inherit;}
+    .btn:hover{opacity:.85;}
+    .btn-primary{background:var(--caramel);color:#fff;}
+    .btn-danger{background:var(--danger);color:#fff;}
+    .btn-sm{padding:5px 12px;font-size:.76rem;}
+    .img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-top:20px;}
+    .img-card{background:#fff;border:1px solid var(--soft);border-radius:10px;overflow:hidden;}
+    .img-card img{width:100%;aspect-ratio:1;object-fit:cover;display:block;}
+    .img-card-body{padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px;}
+    .img-name{font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+    .alert-ok{background:#e8f4e8;color:#3a7a3a;padding:12px 18px;border-radius:8px;font-size:.85rem;margin-bottom:20px;}
+    input[type=file]{display:none;}
+    .upload-label{cursor:pointer;}
+  </style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🎂</span>
+    <h2>萊點後台系統</h2>
+  </div>
+  <div class="sidebar-nav">
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;">八字蛋糕</div>
+    <a href="/admin" class="nav-item"><span class="nav-icon">📋</span> 訂單列表</a>
+    <a href="/admin/ingredients" class="nav-item"><span class="nav-icon">🌿</span> 食材管理</a>
+    <a href="/admin/print" class="nav-item"><span class="nav-icon">🖨️</span> 大批列印</a>
+    <a href="/" class="nav-item"><span class="nav-icon">📝</span> 客戶填單頁</a>
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px;">萊點 銷售頁</div>
+    <a href="/admin/laiten/brand" class="nav-item"><span class="nav-icon">🏷️</span> 品牌設定</a>
+    <a href="/admin/laiten/products/bazi-cake" class="nav-item"><span class="nav-icon">🧁</span> 八字蛋糕產品</a>
+    <a href="/admin/laiten/products/afternoon-tea" class="nav-item"><span class="nav-icon">🍵</span> 精選下午茶</a>
+    <a href="/admin/laiten/images" class="nav-item active"><span class="nav-icon">🖼️</span> 圖片管理</a>
+    <a href="/admin/laiten/sync" class="nav-item"><span class="nav-icon">🚀</span> 同步發布</a>
+  </div>
+  <div class="sidebar-footer">v2.0 ✦ 萊點後台系統</div>
+</nav>
+
+<main class="main">
+  <div class="page-header">
+    <h1 class="page-title">圖片管理 <span>✦</span></h1>
+  </div>
+
+  {% if msg and msg.startswith('uploaded:') %}
+  <div class="alert-ok">✅ 成功上傳 {{ msg.split(':')[1] }} 張圖片。</div>
+  {% elif msg == 'deleted' %}
+  <div class="alert-ok">🗑️ 圖片已刪除。</div>
+  {% endif %}
+
+  <!-- 上傳 -->
+  <div class="card">
+    <form method="POST" enctype="multipart/form-data">
+      <label class="upload-label" for="file-input">
+        <div class="upload-area">
+          <div style="font-size:2rem;margin-bottom:8px;">📁</div>
+          <p style="font-weight:700;margin-bottom:4px;">點擊選擇圖片，或拖拉到這裡</p>
+          <p style="font-size:.8rem;">支援 JPG、PNG、WebP，可多選</p>
+        </div>
+      </label>
+      <input type="file" id="file-input" name="files" accept=".jpg,.jpeg,.png,.webp" multiple
+             onchange="this.form.submit()">
+    </form>
+  </div>
+
+  <!-- 圖片列表 -->
+  {% if images %}
+  <h2 style="font-size:1rem;margin-bottom:4px;">已上傳圖片（{{ images|length }} 張）</h2>
+  <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">在產品管理頁面選擇要套用的圖片。</p>
+  <div class="img-grid">
+    {% for img in images %}
+    <div class="img-card">
+      <img src="/admin/laiten/image/{{ img }}" alt="{{ img }}">
+      <div class="img-card-body">
+        <span class="img-name" title="{{ img }}">{{ img }}</span>
+        <form method="POST" onsubmit="return confirm('確定刪除 {{ img }}？')">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="filename" value="{{ img }}">
+          <button type="submit" class="btn btn-danger btn-sm">刪除</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--muted);font-size:.9rem;">尚未上傳任何圖片。</p>
+  {% endif %}
+</main>
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laiten 萊點｜山交手作，溫度共享</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Noto Serif TC', serif; }
+    :root {
+      --cream: #FAF8F3; --warm-beige: #F0E8D8; --gold: #C4975A;
+      --gold-light: #DDB97A; --dark: #2C1A0E; --mid: #7A5C40; --border: #E5D9C8;
+    }
+    body { background-color: var(--cream); color: var(--dark); }
+    .tab-active   { border-bottom: 2px solid var(--dark); color: var(--dark); font-weight: 500; }
+    .tab-inactive { color: var(--mid); border-bottom: 2px solid transparent; }
+    .tab-inactive:hover { color: var(--dark); }
+    .product-image-placeholder { background: linear-gradient(135deg, var(--warm-beige) 0%, #E8DFCF 100%); }
+    .badge     { background-color: var(--warm-beige); color: var(--mid); font-size: 11px; letter-spacing: .05em; }
+    .cta-btn   { background-color: var(--dark); color: var(--cream); transition: background-color .2s; }
+    .cta-btn:hover { background-color: var(--mid); }
+    .price-tag { color: var(--gold); }
+    .divider   { border-color: var(--border); }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(44,26,14,.6);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .modal-box {
+      background: var(--cream); max-width: 560px; width: 100%;
+      max-height: 90vh; overflow-y: auto; padding: 36px 32px;
+      border: 1px solid var(--border);
+    }
+    .modal-box h2 { font-size: 1.25rem; letter-spacing: .1em; margin-bottom: 20px; color: var(--dark); }
+    .form-notice {
+      background: var(--warm-beige); border-left: 3px solid var(--gold);
+      padding: 12px 16px; font-size: .82rem; line-height: 1.7;
+      color: var(--mid); margin-bottom: 24px;
+    }
+    .form-label { display: block; font-size: .78rem; color: var(--mid); margin-bottom: 4px; letter-spacing: .05em; }
+    .form-input {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+      background: #fff; font-size: .88rem; font-family: inherit;
+      color: var(--dark); outline: none; margin-bottom: 16px;
+      transition: border .2s;
+    }
+    .form-input:focus { border-color: var(--gold); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-submit {
+      width: 100%; padding: 14px; background: var(--dark); color: var(--cream);
+      border: none; font-size: .88rem; letter-spacing: .1em; cursor: pointer;
+      font-family: inherit; transition: background .2s; margin-top: 8px;
+    }
+    .form-submit:hover { background: var(--mid); }
+    .form-submit:disabled { opacity: .5; cursor: not-allowed; }
+    .category-header {
+      width: 100%; text-align: left; padding: 12px 0;
+      border-bottom: 1px solid var(--border); font-size: .88rem;
+      background: none; border-top: none; border-left: none; border-right: none;
+      color: var(--dark); cursor: pointer; display: flex; justify-content: space-between;
+      font-family: inherit; letter-spacing: .05em;
+    }
+    .qty-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 4px; border-bottom: 1px solid var(--warm-beige);
+      font-size: .85rem;
+    }
+    .qty-input {
+      width: 72px; padding: 6px 10px; border: 1px solid var(--border);
+      text-align: center; font-size: .85rem; font-family: inherit;
+    }
+    .total-bar {
+      background: var(--warm-beige); padding: 12px 16px;
+      margin-top: 16px; font-size: .85rem; display: flex;
+      justify-content: space-between; align-items: center;
+    }
+    .total-warn { color: #c0392b; font-size: .78rem; }
+    .form-success {
+      text-align: center; padding: 40px 20px;
+    }
+    .form-success .check { font-size: 3rem; margin-bottom: 12px; }
+    .form-success p { color: var(--mid); font-size: .9rem; line-height: 1.8; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav style="background-color:var(--cream);border-bottom:1px solid var(--border);" class="sticky top-0 z-50">
+  <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div>
+      <span class="text-xl tracking-widest font-light" style="color:var(--dark);">Laiten</span>
+      <span class="ml-2 text-sm tracking-wider" style="color:var(--mid);">萊點</span>
+    </div>
+    <button id="nav-cta" onclick="openActiveModal()"
+       class="text-xs tracking-widest px-4 py-2 border transition-colors duration-200"
+       style="border-color:var(--dark);color:var(--dark);background:transparent;font-family:inherit;cursor:pointer;"
+       onmouseover="this.style.backgroundColor='var(--dark)';this.style.color='var(--cream)'"
+       onmouseout="this.style.backgroundColor='transparent';this.style.color='var(--dark)'">
+      立即詢問
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="max-w-5xl mx-auto px-6 py-24 md:py-36 text-center">
+  <p id="hero-subtitle" class="text-sm tracking-widest mb-6" style="color:var(--mid);">手作甜點外燴 · 八字命格設計</p>
+  <h1 id="hero-tagline" class="text-4xl md:text-6xl font-light tracking-widest leading-relaxed mb-8" style="color:var(--dark);">
+    山交手作，溫度共享
+  </h1>
+  <p id="hero-desc" class="text-base md:text-lg font-light leading-relaxed max-w-lg mx-auto" style="color:var(--mid);">
+    每一份甜點，都為你而設計
+  </p>
+  <div class="mt-12">
+    <svg class="mx-auto w-5 h-8 opacity-30" viewBox="0 0 20 32" fill="none">
+      <path d="M10 0 L10 28 M2 20 L10 28 L18 20" stroke="#2C1A0E" stroke-width="1.5"/>
+    </svg>
+  </div>
+</section>
+
+<!-- TABS -->
+<section class="max-w-5xl mx-auto px-6">
+  <div class="flex gap-10 border-b" style="border-color:var(--border);">
+    <button id="btn-bazi-cake" onclick="switchTab('bazi-cake')"
+            class="tab-btn pb-4 text-sm tracking-widest tab-active transition-colors duration-200">
+      八字蛋糕
+    </button>
+    <button id="btn-afternoon-tea" onclick="switchTab('afternoon-tea')"
+            class="tab-btn pb-4 text-sm tracking-widest tab-inactive transition-colors duration-200">
+      精選下午茶
+    </button>
+  </div>
+
+  <div id="tab-bazi-cake" class="tab-content py-16">
+    <div class="max-w-2xl">
+      <p id="bazi-subtitle" class="text-base font-light leading-relaxed mb-16" style="color:var(--mid);"></p>
+    </div>
+    <div id="bazi-products" class="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
+    <div class="mt-16 text-center">
+      <button onclick="openModal('bazi')"
+         class="text-sm tracking-widest px-10 py-4 border transition-colors duration-200"
+         style="border-color:var(--dark);color:var(--dark);background:transparent;font-family:inherit;cursor:pointer;"
+         onmouseover="this.style.backgroundColor='var(--dark)';this.style.color='var(--cream)'"
+         onmouseout="this.style.backgroundColor='transparent';this.style.color='var(--dark)'">
+        預約八字蛋糕
+      </button>
+    </div>
+  </div>
+
+  <div id="tab-afternoon-tea" class="tab-content py-16 hidden">
+    <div class="max-w-2xl">
+      <p id="tea-subtitle" class="text-base font-light leading-relaxed mb-16" style="color:var(--mid);"></p>
+    </div>
+    <div id="tea-products" class="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
+    <div class="mt-16 text-center">
+      <button onclick="openModal('tea')"
+         class="text-sm tracking-widest px-10 py-4 border transition-colors duration-200"
+         style="border-color:var(--dark);color:var(--dark);background:transparent;font-family:inherit;cursor:pointer;"
+         onmouseover="this.style.backgroundColor='var(--dark)';this.style.color='var(--cream)'"
+         onmouseout="this.style.backgroundColor='transparent';this.style.color='var(--dark)'">
+        洽詢企業訂購
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section class="mt-24 py-20 px-6" style="background-color:var(--dark);">
+  <div class="max-w-5xl mx-auto text-center">
+    <p class="text-sm tracking-widest mb-4 opacity-60" style="color:var(--cream);">準備好了嗎</p>
+    <h2 class="text-2xl md:text-3xl font-light tracking-widest mb-10" style="color:var(--cream);">每一份都值得被好好對待</h2>
+    <button onclick="openActiveModal()"
+       class="inline-block text-sm tracking-widest px-10 py-4 border transition-colors duration-200"
+       style="border-color:var(--cream);color:var(--cream);background:transparent;font-family:inherit;cursor:pointer;"
+       onmouseover="this.style.backgroundColor='var(--cream)';this.style.color='var(--dark)'"
+       onmouseout="this.style.backgroundColor='transparent';this.style.color='var(--cream)'">
+      立即詢問
+    </button>
+  </div>
+</section>
+
+<footer class="py-10 px-6 text-center" style="border-top:1px solid var(--border);">
+  <p class="text-sm tracking-widest font-light" style="color:var(--mid);">Laiten 萊點 · 山交手作，溫度共享</p>
+</footer>
+
+<!-- ══════════════════════════════════════════════════
+     Modal：八字蛋糕
+══════════════════════════════════════════════════ -->
+<div id="modal-bazi" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-bazi')">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="margin-bottom:0;">🎂 八字蛋糕預約</h2>
+      <button onclick="closeModal('bazi')" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--mid);">✕</button>
+    </div>
+
+    <div id="bazi-form-wrap">
+      <div class="form-notice">
+        📦 <strong>取貨說明</strong><br>
+        本店以<strong>面交自取</strong>為主。<br>
+        如需宅配，僅提供<strong>黑貓冷凍宅配</strong>，運送過程造成的損壞恕不負責。
+      </div>
+
+      <form id="form-bazi" onsubmit="submitBazi(event)">
+        <div class="form-row">
+          <div>
+            <label class="form-label">姓名 *</label>
+            <input class="form-input" name="name" required placeholder="王小明">
+          </div>
+          <div>
+            <label class="form-label">聯絡電話 *</label>
+            <input class="form-input" name="phone" required placeholder="0912-345-678" type="tel">
+          </div>
+        </div>
+
+        <label class="form-label">訂購品項 *</label>
+        <select class="form-input" name="product" id="bazi-product-select" required></select>
+
+        <label class="form-label">數量 *</label>
+        <input class="form-input" name="quantity" type="number" min="1" value="1" required>
+
+        <label class="form-label">出生日期（用於八字分析）</label>
+        <input class="form-input" name="birthdate" type="date">
+
+        <label class="form-label">出生時辰（選填）</label>
+        <select class="form-input" name="birth_hour">
+          <option value="">不填 / 不確定</option>
+          <option value="子時">子時（23:00–01:00）</option>
+          <option value="丑時">丑時（01:00–03:00）</option>
+          <option value="寅時">寅時（03:00–05:00）</option>
+          <option value="卯時">卯時（05:00–07:00）</option>
+          <option value="辰時">辰時（07:00–09:00）</option>
+          <option value="巳時">巳時（09:00–11:00）</option>
+          <option value="午時">午時（11:00–13:00）</option>
+          <option value="未時">未時（13:00–15:00）</option>
+          <option value="申時">申時（15:00–17:00）</option>
+          <option value="酉時">酉時（17:00–19:00）</option>
+          <option value="戌時">戌時（19:00–21:00）</option>
+          <option value="亥時">亥時（21:00–23:00）</option>
+        </select>
+
+        <label class="form-label">取貨日期 *</label>
+        <input class="form-input" name="pickup_date" type="date" required>
+
+        <label class="form-label">取貨方式 *</label>
+        <select class="form-input" name="delivery" required>
+          <option value="面交自取">面交自取</option>
+          <option value="黑貓冷凍宅配">黑貓冷凍宅配（運送損壞恕不負責）</option>
+        </select>
+
+        <label class="form-label">備註</label>
+        <textarea class="form-input" name="notes" rows="3" placeholder="其他需求或說明"></textarea>
+
+        <button type="submit" class="form-submit" id="bazi-submit-btn">送出預約</button>
+      </form>
+    </div>
+
+    <div id="bazi-success" class="form-success hidden">
+      <div class="check">🎂</div>
+      <p>感謝您的預約！<br>我們會盡快與您聯繫確認訂單細節。</p>
+      <button onclick="closeModal('bazi')" style="margin-top:24px;padding:10px 28px;border:1px solid var(--border);background:none;cursor:pointer;font-family:inherit;font-size:.85rem;">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     Modal：精選下午茶
+══════════════════════════════════════════════════ -->
+<div id="modal-tea" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-tea')">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="margin-bottom:0;">🍵 精選下午茶洽詢</h2>
+      <button onclick="closeModal('tea')" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--mid);">✕</button>
+    </div>
+
+    <div id="tea-form-wrap">
+      <div class="form-notice">
+        ⚠️ <strong>最低訂購量：30 份</strong><br>
+        適合公司聚餐、會議茶點、員工活動，歡迎洽詢客製內容。
+      </div>
+
+      <form id="form-tea" onsubmit="submitTea(event)">
+        <div class="form-row">
+          <div>
+            <label class="form-label">公司名稱 *</label>
+            <input class="form-input" name="company" required placeholder="○○有限公司">
+          </div>
+          <div>
+            <label class="form-label">聯絡人 *</label>
+            <input class="form-input" name="contact" required placeholder="王小明">
+          </div>
+        </div>
+
+        <label class="form-label">聯絡電話 *</label>
+        <input class="form-input" name="phone" required placeholder="0912-345-678" type="tel">
+
+        <label class="form-label">需求日期 *</label>
+        <input class="form-input" name="event_date" type="date" required>
+
+        <label class="form-label" style="margin-bottom:8px;">訂購品項（各品項輸入份數，0 表示不訂）*</label>
+        <div id="tea-items-list"></div>
+
+        <div class="total-bar">
+          <span>目前總計</span>
+          <span><strong id="tea-total">0</strong> 份
+            <span id="tea-warn" class="total-warn hidden">（未達 30 份最低訂購量）</span>
+          </span>
+        </div>
+
+        <label class="form-label" style="margin-top:16px;">備註</label>
+        <textarea class="form-input" name="notes" rows="3" placeholder="其他需求或說明"></textarea>
+
+        <button type="submit" class="form-submit" id="tea-submit-btn">送出洽詢</button>
+      </form>
+    </div>
+
+    <div id="tea-success" class="form-success hidden">
+      <div class="check">🍵</div>
+      <p>感謝您的洽詢！<br>我們會盡快與您確認訂單細節。</p>
+      <button onclick="closeModal('tea')" style="margin-top:24px;padding:10px 28px;border:1px solid var(--border);background:none;cursor:pointer;font-family:inherit;font-size:.85rem;">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo';
+let GAS_URL_BAZI = '';
+let GAS_URL_TEA  = '';
+let currentTab   = 'bazi-cake';
+let teaProducts  = [];
+
+// ── 從 Google Sheets 讀資料 ──────────────────────────────────────
+
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.trim().split('\n');
+  for (const line of lines) {
+    const cells = [];
+    let field = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { if (inQ && line[i+1] === '"') { field += '"'; i++; } else { inQ = !inQ; } }
+      else if (c === ',' && !inQ) { cells.push(field); field = ''; }
+      else { field += c; }
+    }
+    cells.push(field);
+    rows.push(cells);
+  }
+  return rows;
+}
+
+async function fetchSheet(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const r = await fetch(url);
+  const text = await r.text();
+  return parseCSV(text).slice(1); // 去掉 header row
+}
+
+async function loadData() {
+  const [brandRows, prodRows] = await Promise.all([
+    fetchSheet('品牌設定'),
+    fetchSheet('產品主檔'),
+  ]);
+
+  const brand = {};
+  for (const row of brandRows) { if (row[0]) brand[row[0]] = row[1] || ''; }
+
+  GAS_URL_BAZI = brand['cta_url_bazi'] || '';
+  GAS_URL_TEA  = brand['cta_url_tea']  || '';
+
+  document.getElementById('hero-tagline').textContent = brand['tagline']  || 'Laiten';
+  document.getElementById('hero-desc').textContent    = brand['subtitle'] || '';
+
+  const lines = { 'bazi-cake': [], 'afternoon-tea': [] };
+  for (const row of prodRows) {
+    const lineId = row[0];
+    if (!lines[lineId]) continue;
+    if (row[8] && row[8].toUpperCase() === 'FALSE') continue; // active = FALSE 跳過
+    lines[lineId].push({
+      id:          row[1]  || '',
+      name:        row[2]  || '',
+      badge:       row[3]  || '',
+      description: row[4]  || '',
+      price:       parseInt(row[5]) || 0,
+      discount:    parseInt(row[6]) || 0,
+      unit:        row[7]  || '',
+      images:      row[10] ? row[10].split(',').map(s=>s.trim()).filter(Boolean) : [],
+      category:    row[11] || '',
+    });
+  }
+
+  // 品牌名稱與 subtitle
+  document.getElementById('btn-bazi-cake').textContent   = brand['bazi-cake_name']      || '八字蛋糕';
+  document.getElementById('btn-afternoon-tea').textContent = brand['afternoon-tea_name'] || '精選下午茶';
+  document.getElementById('bazi-subtitle').textContent   = brand['bazi-cake_subtitle']     || '';
+  document.getElementById('tea-subtitle').textContent    = brand['afternoon-tea_subtitle']  || '';
+
+  renderProducts('bazi-products',   lines['bazi-cake']);
+  renderProducts('tea-products',    lines['afternoon-tea']);
+  buildBaziSelect(lines['bazi-cake']);
+
+  teaProducts = lines['afternoon-tea'];
+  buildTeaItems(teaProducts);
+}
+
+// ── 產品卡片渲染 ────────────────────────────────────────────────
+
+function priceLabel(p) {
+  if (!p.price) return '';
+  if (p.discount > 0 && p.discount < 100) {
+    const d = Math.round(p.price * p.discount / 100);
+    return `<span style="text-decoration:line-through;opacity:.4;margin-right:6px;">NT$ ${p.price.toLocaleString()}</span>
+            <span class="price-tag font-medium">NT$ ${d.toLocaleString()} / ${p.unit}</span>`;
+  }
+  return `<span class="price-tag font-medium">NT$ ${p.price.toLocaleString()} / ${p.unit}</span>`;
+}
+
+function productCard(p) {
+  const img = p.images.length ? `<img src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover">` :
+    `<p class="text-xs tracking-widest opacity-30" style="color:var(--mid)">即將上架</p>`;
+  const price = priceLabel(p);
+  return `
+    <div class="bg-white" style="border:1px solid var(--border);">
+      <div class="w-full overflow-hidden product-image-placeholder flex items-center justify-center" style="aspect-ratio:4/3">
+        ${img}
+      </div>
+      <div class="p-6">
+        ${p.badge ? `<span class="badge px-2 py-1 mb-3 inline-block rounded-sm">${p.badge}</span>` : ''}
+        <h3 class="text-base tracking-wider mb-3" style="color:var(--dark)">${p.name}</h3>
+        <p class="text-sm font-light leading-relaxed mb-4" style="color:var(--mid)">${p.description}</p>
+        ${price ? `<p class="text-sm mt-4">${price}</p>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderProducts(elId, products) {
+  const el = document.getElementById(elId);
+  el.innerHTML = products.length ? products.map(productCard).join('') :
+    `<p class="text-sm tracking-widest opacity-40" style="color:var(--mid);">品項即將上架，敬請期待。</p>`;
+}
+
+// ── 八字蛋糕：品項選單 ───────────────────────────────────────────
+
+function buildBaziSelect(products) {
+  const sel = document.getElementById('bazi-product-select');
+  sel.innerHTML = products.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+}
+
+// ── 精選下午茶：品項輸入列 ──────────────────────────────────────
+
+function buildTeaItems(products) {
+  const wrap = document.getElementById('tea-items-list');
+  if (!products.length) { wrap.innerHTML = '<p style="color:var(--mid);font-size:.85rem;">目前無品項，請稍後再試。</p>'; return; }
+
+  // 依分類分組
+  const groups = {};
+  for (const p of products) {
+    const cat = p.category || '其他';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(p);
+  }
+
+  let html = '';
+  for (const [cat, prods] of Object.entries(groups)) {
+    html += `<button type="button" class="category-header" onclick="toggleCategory(this)">
+               <span>${cat}</span><span class="arrow">▼</span>
+             </button>
+             <div class="category-body" style="padding:4px 0 8px;">`;
+    for (const p of prods) {
+      const label = p.price ? `${p.name}　NT$ ${p.price.toLocaleString()} / ${p.unit}` : p.name;
+      html += `<div class="qty-row">
+                 <span>${label}</span>
+                 <input type="number" min="0" value="0" class="qty-input" data-product="${p.name}"
+                        oninput="updateTotal()" placeholder="份">
+               </div>`;
+    }
+    html += `</div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function toggleCategory(btn) {
+  const body = btn.nextElementSibling;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? '' : 'none';
+  btn.querySelector('.arrow').textContent = isHidden ? '▼' : '▶';
+}
+
+function updateTotal() {
+  const inputs = document.querySelectorAll('.qty-input');
+  let total = 0;
+  inputs.forEach(inp => { total += parseInt(inp.value) || 0; });
+  document.getElementById('tea-total').textContent = total;
+  const warn = document.getElementById('tea-warn');
+  warn.classList.toggle('hidden', total >= 30 || total === 0);
+}
+
+// ── Tab 切換 ────────────────────────────────────────────────────
+
+function switchTab(tabId) {
+  currentTab = tabId;
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el => {
+    el.classList.remove('tab-active'); el.classList.add('tab-inactive');
+  });
+  document.getElementById('tab-' + tabId).classList.remove('hidden');
+  const btn = document.getElementById('btn-' + tabId);
+  btn.classList.add('tab-active'); btn.classList.remove('tab-inactive');
+}
+
+// ── Modal 開關 ──────────────────────────────────────────────────
+
+function openModal(type) {
+  document.getElementById('modal-' + type).classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(type) {
+  document.getElementById('modal-' + type).classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function closeModalOutside(e, id) {
+  if (e.target.id === id) closeModal(id.replace('modal-', ''));
+}
+
+function openActiveModal() {
+  openModal(currentTab === 'afternoon-tea' ? 'tea' : 'bazi');
+}
+
+// ── 表單送出 ────────────────────────────────────────────────────
+
+function collectTeaItems() {
+  const result = [];
+  document.querySelectorAll('.qty-input').forEach(inp => {
+    const qty = parseInt(inp.value) || 0;
+    if (qty > 0) result.push(`${inp.dataset.product} x${qty}`);
+  });
+  return result;
+}
+
+async function submitBazi(e) {
+  e.preventDefault();
+  const btn = document.getElementById('bazi-submit-btn');
+  btn.disabled = true; btn.textContent = '送出中…';
+
+  const fd = new FormData(e.target);
+  const payload = Object.fromEntries(fd);
+  payload.type = 'bazi';
+
+  await sendToGAS(GAS_URL_BAZI, payload);
+  document.getElementById('bazi-form-wrap').classList.add('hidden');
+  document.getElementById('bazi-success').classList.remove('hidden');
+}
+
+async function submitTea(e) {
+  e.preventDefault();
+  const items = collectTeaItems();
+  const total = items.reduce((s, i) => s + parseInt(i.match(/x(\d+)/)[1]), 0);
+  if (total < 30) { alert('最低訂購量為 30 份，目前合計 ' + total + ' 份，請增加數量。'); return; }
+
+  const btn = document.getElementById('tea-submit-btn');
+  btn.disabled = true; btn.textContent = '送出中…';
+
+  const fd = new FormData(e.target);
+  const payload = Object.fromEntries(fd);
+  payload.type      = 'tea';
+  payload.items     = items.join('、');
+  payload.total_qty = String(total);
+
+  await sendToGAS(GAS_URL_TEA, payload);
+  document.getElementById('tea-form-wrap').classList.add('hidden');
+  document.getElementById('tea-success').classList.remove('hidden');
+}
+
+async function sendToGAS(url, payload) {
+  if (!url) { console.warn('GAS URL 未設定，資料：', payload); return; }
+  const body = new URLSearchParams(payload).toString();
+  try {
+    await fetch(url, { method: 'POST', body, mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  } catch(err) { console.error('送出失敗', err); }
+}
+
+// ── 初始化 ──────────────────────────────────────────────────────
+loadData().catch(console.error);
+</script>
+
+</body>
+</html>

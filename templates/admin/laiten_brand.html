@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>品牌設定 ✦ 萊點後台</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    :root { --sand:#f5ede0;--cream:#fdf8f2;--brown:#4a2c1a;--caramel:#c97a5a;--soft:#e8d0bc;--muted:#9a7060;--success:#7aab72;--sidebar:220px; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans TC',sans-serif;background:var(--cream);color:var(--brown);display:flex;min-height:100vh;}
+    .sidebar{width:var(--sidebar);min-height:100vh;background:var(--brown);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;}
+    .sidebar-logo{padding:28px 20px 20px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center;}
+    .sidebar-logo .icon{font-size:2rem;display:block;}
+    .sidebar-logo h2{font-family:'Noto Serif TC',serif;font-size:.9rem;color:var(--sand);margin-top:6px;letter-spacing:.1em;}
+    .sidebar-nav{padding:16px 0;flex:1;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.65);text-decoration:none;font-size:.88rem;transition:all .2s;border-left:3px solid transparent;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--sand);background:rgba(255,255,255,.1);border-left-color:var(--caramel);font-weight:700;}
+    .nav-icon{font-size:1.1rem;width:20px;text-align:center;}
+    .sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.1);font-size:.75rem;color:rgba(255,255,255,.3);}
+    .main{margin-left:var(--sidebar);flex:1;padding:32px 36px;}
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+    .page-title{font-family:'Noto Serif TC',serif;font-size:1.4rem;color:var(--brown);}
+    .page-title span{color:var(--caramel);}
+    .card{background:#fff;border-radius:16px;border:1px solid var(--soft);padding:28px 32px;margin-bottom:20px;}
+    label{display:block;font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.05em;}
+    input[type=text],input[type=url]{width:100%;padding:10px 14px;border:1px solid var(--soft);border-radius:8px;font-size:.9rem;font-family:inherit;color:var(--brown);background:#fff;outline:none;transition:border .2s;}
+    input:focus{border-color:var(--caramel);}
+    .form-group{margin-bottom:20px;}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:opacity .2s;font-family:inherit;}
+    .btn:hover{opacity:.85;}
+    .btn-primary{background:var(--caramel);color:#fff;}
+    .alert-ok{background:#e8f4e8;color:#3a7a3a;padding:12px 18px;border-radius:8px;font-size:.85rem;margin-bottom:20px;}
+  </style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🎂</span>
+    <h2>萊點後台系統</h2>
+  </div>
+  <div class="sidebar-nav">
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;">八字蛋糕</div>
+    <a href="/admin" class="nav-item"><span class="nav-icon">📋</span> 訂單列表</a>
+    <a href="/admin/ingredients" class="nav-item"><span class="nav-icon">🌿</span> 食材管理</a>
+    <a href="/admin/print" class="nav-item"><span class="nav-icon">🖨️</span> 大批列印</a>
+    <a href="/" class="nav-item"><span class="nav-icon">📝</span> 客戶填單頁</a>
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px;">萊點 銷售頁</div>
+    <a href="/admin/laiten/brand" class="nav-item active"><span class="nav-icon">🏷️</span> 品牌設定</a>
+    <a href="/admin/laiten/products/bazi-cake" class="nav-item"><span class="nav-icon">🧁</span> 八字蛋糕產品</a>
+    <a href="/admin/laiten/products/afternoon-tea" class="nav-item"><span class="nav-icon">🍵</span> 精選下午茶</a>
+    <a href="/admin/laiten/images" class="nav-item"><span class="nav-icon">🖼️</span> 圖片管理</a>
+    <a href="/admin/laiten/sync" class="nav-item"><span class="nav-icon">🚀</span> 同步發布</a>
+  </div>
+  <div class="sidebar-footer">v2.0 ✦ 萊點後台系統</div>
+</nav>
+
+<main class="main">
+  <div class="page-header">
+    <h1 class="page-title">品牌設定 <span>✦</span></h1>
+  </div>
+
+  {% if msg == 'ok' %}
+  <div class="alert-ok">✅ 已儲存，銷售頁即時更新。</div>
+  {% endif %}
+
+  <form method="POST">
+    <div class="card">
+      <div class="form-group">
+        <label>品牌口號（Hero 主標題）</label>
+        <input type="text" name="tagline" value="{{ brand.tagline }}">
+      </div>
+      <div class="form-group">
+        <label>品牌副標（Hero 副說明）</label>
+        <input type="text" name="subtitle" value="{{ brand.subtitle }}">
+      </div>
+      <div class="form-group">
+        <label>CTA 按鈕文字</label>
+        <input type="text" name="cta_text" value="{{ brand.cta_text }}" placeholder="立即詢問">
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:.85rem;color:var(--muted);margin-bottom:16px;">
+        📋 以下為 Google Apps Script 接收訂單的端點 URL。部署後填入。
+      </div>
+      <div class="form-group">
+        <label>八字蛋糕 訂單接收 URL（Apps Script）</label>
+        <input type="text" name="cta_url_bazi" value="{{ brand.cta_url_bazi }}" placeholder="https://script.google.com/macros/s/...">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>精選下午茶 訂單接收 URL（Apps Script）</label>
+        <input type="text" name="cta_url_tea" value="{{ brand.cta_url_tea }}" placeholder="https://script.google.com/macros/s/...">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">💾 儲存品牌設定</button>
+  </form>
+</main>
+</body>
+</html>

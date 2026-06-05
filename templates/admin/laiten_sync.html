@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>同步發布 ✦ 萊點後台</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    :root{--sand:#f5ede0;--cream:#fdf8f2;--brown:#4a2c1a;--caramel:#c97a5a;--soft:#e8d0bc;--muted:#9a7060;--success:#7aab72;--warn:#e0a040;--danger:#d06050;--sidebar:220px;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans TC',sans-serif;background:var(--cream);color:var(--brown);display:flex;min-height:100vh;}
+    .sidebar{width:var(--sidebar);min-height:100vh;background:var(--brown);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;}
+    .sidebar-logo{padding:28px 20px 20px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center;}
+    .sidebar-logo .icon{font-size:2rem;display:block;}
+    .sidebar-logo h2{font-family:'Noto Serif TC',serif;font-size:.9rem;color:var(--sand);margin-top:6px;letter-spacing:.1em;}
+    .sidebar-nav{padding:16px 0;flex:1;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.65);text-decoration:none;font-size:.88rem;transition:all .2s;border-left:3px solid transparent;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--sand);background:rgba(255,255,255,.1);border-left-color:var(--caramel);font-weight:700;}
+    .nav-icon{font-size:1.1rem;width:20px;text-align:center;}
+    .sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.1);font-size:.75rem;color:rgba(255,255,255,.3);}
+    .main{margin-left:var(--sidebar);flex:1;padding:32px 36px;}
+    .page-header{margin-bottom:28px;}
+    .page-title{font-family:'Noto Serif TC',serif;font-size:1.4rem;color:var(--brown);}
+    .page-title span{color:var(--caramel);}
+    .card{background:#fff;border-radius:16px;border:1px solid var(--soft);padding:24px 28px;margin-bottom:20px;}
+    label{display:block;font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:6px;}
+    input[type=text]{width:100%;padding:10px 14px;border:1px solid var(--soft);border-radius:8px;font-size:.9rem;font-family:inherit;color:var(--brown);background:#fff;outline:none;transition:border .2s;}
+    input:focus{border-color:var(--caramel);}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:11px 24px;border-radius:8px;font-size:.88rem;font-weight:700;cursor:pointer;border:none;transition:opacity .2s;font-family:inherit;}
+    .btn:hover{opacity:.85;}
+    .btn-primary{background:var(--caramel);color:#fff;}
+    .alert{padding:14px 18px;border-radius:8px;font-size:.88rem;margin-bottom:20px;}
+    .alert-ok{background:#e8f4e8;color:#3a7a3a;}
+    .alert-warn{background:#fdf0e0;color:#8a5a00;}
+    .alert-err{background:#fde8e8;color:#8a2020;}
+    .steps{display:flex;flex-direction:column;gap:10px;}
+    .step{display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--sand);border-radius:10px;}
+    .step-num{width:26px;height:26px;border-radius:50%;background:var(--caramel);color:#fff;font-size:.8rem;font-weight:700;text-align:center;line-height:26px;flex-shrink:0;}
+    .step-text{font-size:.86rem;line-height:1.5;}
+    pre{background:var(--sand);border-radius:8px;padding:14px;font-size:.75rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word;color:var(--muted);max-height:300px;overflow-y:auto;}
+  </style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🎂</span>
+    <h2>萊點後台系統</h2>
+  </div>
+  <div class="sidebar-nav">
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;">八字蛋糕</div>
+    <a href="/admin" class="nav-item"><span class="nav-icon">📋</span> 訂單列表</a>
+    <a href="/admin/ingredients" class="nav-item"><span class="nav-icon">🌿</span> 食材管理</a>
+    <a href="/admin/print" class="nav-item"><span class="nav-icon">🖨️</span> 大批列印</a>
+    <a href="/" class="nav-item"><span class="nav-icon">📝</span> 客戶填單頁</a>
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px;">萊點 銷售頁</div>
+    <a href="/admin/laiten/brand" class="nav-item"><span class="nav-icon">🏷️</span> 品牌設定</a>
+    <a href="/admin/laiten/products/bazi-cake" class="nav-item"><span class="nav-icon">🧁</span> 八字蛋糕產品</a>
+    <a href="/admin/laiten/products/afternoon-tea" class="nav-item"><span class="nav-icon">🍵</span> 精選下午茶</a>
+    <a href="/admin/laiten/images" class="nav-item"><span class="nav-icon">🖼️</span> 圖片管理</a>
+    <a href="/admin/laiten/sync" class="nav-item active"><span class="nav-icon">🚀</span> 同步發布</a>
+  </div>
+  <div class="sidebar-footer">v2.0 ✦ 萊點後台系統</div>
+</nav>
+
+<main class="main">
+  <div class="page-header">
+    <h1 class="page-title">同步發布 <span>✦</span></h1>
+  </div>
+
+  {% if result %}
+    {% if result[0] == 'ok' %}
+    <div class="alert alert-ok">✅ {{ result[1] }}</div>
+    {% elif result[0] == 'warn' %}
+    <div class="alert alert-warn">⚠️ {{ result[1] }}</div>
+    {% else %}
+    <div class="alert alert-err">❌ {{ result[1] }}</div>
+    {% endif %}
+  {% endif %}
+
+  <!-- 流程說明 -->
+  <div class="card">
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:16px;">每次在後台修改完產品資料後，點「推送到 GitHub」，Netlify 會自動重新部署。</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-text">在後台修改品牌設定 / 產品資料 / 上傳圖片</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">回到這頁，填 commit 說明（告訴自己改了什麼），點「推送」</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">1~2 分鐘後，Netlify 自動更新，網站上的內容就變了</div></div>
+    </div>
+  </div>
+
+  <!-- CTA 確認 -->
+  {% if '請替換' in data.brand.cta_url or not data.brand.cta_url.startswith('http') %}
+  <div class="alert alert-warn">⚠️ 還沒設定 Google 表單網址，請先到「品牌設定」填入正確網址再推送。</div>
+  {% endif %}
+
+  <!-- 推送 -->
+  <div class="card">
+    <form method="POST">
+      <div style="margin-bottom:16px;">
+        <label>Commit 說明（記錄這次改了什麼）</label>
+        <input type="text" name="commit_msg" value="update: 更新 Laiten 產品資料" placeholder="update: ...">
+      </div>
+      <button type="submit" class="btn btn-primary">🚀 推送到 GitHub</button>
+    </form>
+  </div>
+
+  <!-- 目前資料預覽 -->
+  <details>
+    <summary style="cursor:pointer;font-size:.88rem;font-weight:700;color:var(--muted);margin-bottom:8px;">目前 products.js 內容預覽</summary>
+    <pre>{{ data | tojson(indent=2) }}</pre>
+  </details>
+</main>
+</body>
+</html>

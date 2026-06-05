@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ line.name }} 產品管理 ✦ 萊點後台</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    :root{--sand:#f5ede0;--cream:#fdf8f2;--brown:#4a2c1a;--caramel:#c97a5a;--soft:#e8d0bc;--muted:#9a7060;--success:#7aab72;--danger:#d06050;--sidebar:220px;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans TC',sans-serif;background:var(--cream);color:var(--brown);display:flex;min-height:100vh;}
+    .sidebar{width:var(--sidebar);min-height:100vh;background:var(--brown);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;}
+    .sidebar-logo{padding:28px 20px 20px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center;}
+    .sidebar-logo .icon{font-size:2rem;display:block;}
+    .sidebar-logo h2{font-family:'Noto Serif TC',serif;font-size:.9rem;color:var(--sand);margin-top:6px;letter-spacing:.1em;}
+    .sidebar-nav{padding:16px 0;flex:1;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.65);text-decoration:none;font-size:.88rem;transition:all .2s;border-left:3px solid transparent;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--sand);background:rgba(255,255,255,.1);border-left-color:var(--caramel);font-weight:700;}
+    .nav-icon{font-size:1.1rem;width:20px;text-align:center;}
+    .sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.1);font-size:.75rem;color:rgba(255,255,255,.3);}
+    .main{margin-left:var(--sidebar);flex:1;padding:32px 36px;}
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+    .page-title{font-family:'Noto Serif TC',serif;font-size:1.4rem;color:var(--brown);}
+    .page-title span{color:var(--caramel);}
+    .card{background:#fff;border-radius:16px;border:1px solid var(--soft);padding:24px 28px;margin-bottom:16px;}
+    .card-title{font-family:'Noto Serif TC',serif;font-size:1rem;margin-bottom:20px;color:var(--brown);display:flex;align-items:center;gap:8px;}
+    label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:5px;letter-spacing:.05em;}
+    input[type=text],input[type=number],textarea,select{width:100%;padding:9px 13px;border:1px solid var(--soft);border-radius:8px;font-size:.88rem;font-family:inherit;color:var(--brown);background:#fff;outline:none;transition:border .2s;}
+    input:focus,textarea:focus,select:focus{border-color:var(--caramel);}
+    textarea{resize:vertical;min-height:80px;}
+    .form-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;}
+    .form-group{margin-bottom:14px;}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:.83rem;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:opacity .2s;font-family:inherit;}
+    .btn:hover{opacity:.85;}
+    .btn-primary{background:var(--caramel);color:#fff;}
+    .btn-ghost{background:var(--soft);color:var(--brown);}
+    .btn-danger{background:var(--danger);color:#fff;}
+    .btn-sm{padding:6px 14px;font-size:.78rem;}
+    .divider{border:none;border-top:1px solid var(--soft);margin:20px 0;}
+    .alert-ok{background:#e8f4e8;color:#3a7a3a;padding:12px 18px;border-radius:8px;font-size:.85rem;margin-bottom:20px;}
+    .img-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+    .img-check{display:flex;align-items:center;gap:6px;background:var(--sand);padding:5px 10px;border-radius:6px;font-size:.8rem;}
+    .img-check input[type=checkbox]{width:auto;padding:0;border:none;}
+    .product-num{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--caramel);color:#fff;font-size:.75rem;font-weight:700;text-align:center;line-height:22px;margin-right:6px;}
+  </style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🎂</span>
+    <h2>萊點後台系統</h2>
+  </div>
+  <div class="sidebar-nav">
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;">八字蛋糕</div>
+    <a href="/admin" class="nav-item"><span class="nav-icon">📋</span> 訂單列表</a>
+    <a href="/admin/ingredients" class="nav-item"><span class="nav-icon">🌿</span> 食材管理</a>
+    <a href="/admin/print" class="nav-item"><span class="nav-icon">🖨️</span> 大批列印</a>
+    <a href="/" class="nav-item"><span class="nav-icon">📝</span> 客戶填單頁</a>
+    <div style="padding:10px 20px 4px;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:14px;">萊點 銷售頁</div>
+    <a href="/admin/laiten/brand" class="nav-item"><span class="nav-icon">🏷️</span> 品牌設定</a>
+    <a href="/admin/laiten/products/bazi-cake" class="nav-item {% if line.id == 'bazi-cake' %}active{% endif %}"><span class="nav-icon">🧁</span> 八字蛋糕產品</a>
+    <a href="/admin/laiten/products/afternoon-tea" class="nav-item {% if line.id == 'afternoon-tea' %}active{% endif %}"><span class="nav-icon">🍵</span> 精選下午茶</a>
+    <a href="/admin/laiten/images" class="nav-item"><span class="nav-icon">🖼️</span> 圖片管理</a>
+    <a href="/admin/laiten/sync" class="nav-item"><span class="nav-icon">🚀</span> 同步發布</a>
+  </div>
+  <div class="sidebar-footer">v2.0 ✦ 萊點後台系統</div>
+</nav>
+
+<main class="main">
+  <div class="page-header">
+    <h1 class="page-title">{{ line.name }} <span>✦</span> 產品管理</h1>
+    <div style="display:flex;gap:10px;">
+      {% for l in all_lines %}
+        <a href="/admin/laiten/products/{{ l.id }}"
+           class="btn {% if l.id == line.id %}btn-primary{% else %}btn-ghost{% endif %}">
+          {{ l.name }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if msg in ('ok', 'added', 'deleted') %}
+  <div class="alert-ok">✅ 已儲存，銷售頁即時更新。</div>
+  {% endif %}
+
+  <form method="POST">
+    <input type="hidden" name="action" value="update">
+
+    <!-- 產品線資訊 -->
+    <div class="card">
+      <div class="form-group">
+        <label>產品線名稱</label>
+        <input type="text" name="line_name" value="{{ line.name }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>產品線介紹文字（顯示在 Tab 下方）</label>
+        <textarea name="line_subtitle">{{ line.subtitle }}</textarea>
+      </div>
+    </div>
+
+    <!-- 每個產品 -->
+    {% for p in line.products %}
+    <div class="card">
+      <div class="card-title">
+        <span class="product-num">{{ loop.index }}</span>
+        {{ p.name or '（未命名）' }}
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>產品名稱</label>
+          <input type="text" name="p{{ loop.index0 }}_name" value="{{ p.name }}">
+        </div>
+        <div>
+          <label>標籤（如：八字客製）</label>
+          <input type="text" name="p{{ loop.index0 }}_badge" value="{{ p.badge }}">
+        </div>
+        <div>
+          <label>計價單位（個 / 份 / 人份起）</label>
+          <input type="text" name="p{{ loop.index0 }}_unit" value="{{ p.unit }}">
+        </div>
+      </div>
+
+      {% if line.id == 'afternoon-tea' %}
+      <div class="form-group">
+        <label>分類（下午茶用，如：季節限定、招牌套組）</label>
+        <input type="text" name="p{{ loop.index0 }}_category" value="{{ p.category }}" placeholder="套組">
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label>產品說明</label>
+        <textarea name="p{{ loop.index0 }}_desc">{{ p.description }}</textarea>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>售價（0 = 未設定）</label>
+          <input type="number" name="p{{ loop.index0 }}_price" value="{{ p.price }}" min="0" step="50">
+        </div>
+        <div>
+          <label>折扣 %（0 = 無折扣，85 = 八五折）</label>
+          <input type="number" name="p{{ loop.index0 }}_discount" value="{{ p.discount }}" min="0" max="100">
+        </div>
+        <div></div>
+      </div>
+
+      {% if images %}
+      <div>
+        <label>選擇產品圖片</label>
+        <div class="img-grid">
+          {% for img in images %}
+          <label class="img-check">
+            <input type="checkbox" name="p{{ loop.parent.loop.index0 }}_images"
+                   value="images/{{ img }}"
+                   {% if 'images/' + img in p.images %}checked{% endif %}>
+            {{ img }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <p style="font-size:.8rem;color:var(--muted);">尚未上傳圖片，請先到「圖片管理」上傳。</p>
+      {% endif %}
+
+      <hr class="divider">
+      <button type="submit" form="del-form-{{ loop.index0 }}" class="btn btn-danger btn-sm">🗑️ 刪除此產品</button>
+    </div>
+
+    <form id="del-form-{{ loop.index0 }}" method="POST" style="display:none">
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="idx" value="{{ loop.index0 }}">
+    </form>
+    {% endfor %}
+
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      <button type="submit" class="btn btn-primary">💾 儲存全部變更</button>
+    </div>
+  </form>
+
+  <!-- 新增產品 -->
+  <form method="POST" style="margin-top:12px;">
+    <input type="hidden" name="action" value="add">
+    <button type="submit" class="btn btn-ghost">➕ 新增產品</button>
+  </form>
+</main>
+</body>
+</html>

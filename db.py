@@ -42,7 +42,6 @@ def _get_sheet(tab_name: str):
             info = json.loads(sa_json)
             creds = Credentials.from_service_account_info(info, scopes=SCOPES)
         else:
-            # 本機開發：從檔案讀
             creds = Credentials.from_service_account_file(
                 "service_account.json", scopes=SCOPES
             )
@@ -51,6 +50,14 @@ def _get_sheet(tab_name: str):
         _sh = _gc.open_by_key(sheet_id)
 
     return _sh.worksheet(tab_name)
+
+
+def _get_sheet_safe(tab_name: str):
+    """同 _get_sheet，但連線失敗時回傳 None 而非拋出例外"""
+    try:
+        return _get_sheet(tab_name)
+    except Exception:
+        return None
 
 
 # ── Orders ────────────────────────────────────────────────────────
@@ -85,7 +92,9 @@ def _row_to_order(row: list) -> dict:
 
 def load_orders() -> list:
     """讀取所有訂單，回傳 list of dict，最新在前"""
-    ws = _get_sheet("orders")
+    ws = _get_sheet_safe("orders")
+    if ws is None:
+        return []
     rows = ws.get_all_values()
     if len(rows) <= 1:
         return []

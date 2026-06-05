@@ -1,10 +1,52 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 from datetime import datetime
+from pathlib import Path
+from werkzeug.utils import secure_filename
 import anthropic
 import json
+import re
+import subprocess
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 
-app = Flask(__name__)
+CAKE_ROOT    = Path(__file__).parent.parent
+LAITEN_DIR   = CAKE_ROOT / "laiten_public"
+IMAGES_DIR   = LAITEN_DIR / "images"
+IMG_EXTS     = {".jpg", ".jpeg", ".png", ".webp"}
+SHEET_ID     = "1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo"
+GWS_CMD      = r"C:\Users\chin3\AppData\Roaming\npm\gws.cmd"
+
+# ── Google Sheets 存取層 ──────────────────────────────────────────────
+
+def _gws(*args) -> str:
+    r = subprocess.run(
+        ["cmd", "/c", GWS_CMD] + list(args),
+        capture_output=True, text=True, encoding="utf-8"
+    )
+    return r.stdout
+
+def _gws_read(range_: str) -> list:
+    stdout = _gws("sheets", "spreadsheets", "values", "get",
+                  "--params", json.dumps({"spreadsheetId": SHEET_ID, "range": range_})).strip()
+    idx = stdout.find('{')
+    if idx == -1:
+        return []
+    try:
+        return json.loads(stdout[idx:]).get("values", [])
+    except json.JSONDecodeError:
+        return []
+
+def _gws_write(range_: str, values: list):
+    _gws("sheets", "spreadsheets", "values", "update",
+         "--params", json.dumps({"spreadsheetId": SHEET_ID, "range": range_, "valueInputOption": "RAW"}),
+         "--json", json.dumps({"values": values}))
+
+def _gws_clear(range_: str):
+    _gws("sheets", "spreadsheets", "values", "clear",
+         "--params", json.dumps({"spreadsheetId": SHEET_ID, "range": range_}))
+
+app = Flask(__name__, template_folder=str(CAKE_ROOT / "templates"))
 
 # ── 食材資料（UI 用，不存 DB）────────────────────────────────────────
 FOOD_DATA = {
@@ -364,6 +406,224 @@ def admin_print():
     orders    = db.load_orders()
     printable = [o for o in orders if o.get("card_text")]
     return render_template("admin/print.html", orders=printable)
+
+
+# ── Laiten 輔助 ───────────────────────────────────────────────────
+
+def _load_laiten() -> dict:
+    # 讀品牌設定
+    brand_rows = _gws_read("品牌設定!A2:B20")
+    brand = {row[0]: row[1] for row in brand_rows if len(row) >= 2}
+
+    # 讀產品主檔
+    prod_rows = _gws_read("產品主檔!A2:L500")
+    lines_map = {}
+    for row in prod_rows:
+        if not row or len(row) < 3:
+            continue
+        line_id = row[0]
+        prod = {
+            "id":          row[1]  if len(row) > 1  else "",
+            "name":        row[2]  if len(row) > 2  else "",
+            "badge":       row[3]  if len(row) > 3  else "",
+            "description": row[4]  if len(row) > 4  else "",
+            "price":       int(row[5]) if len(row) > 5 and str(row[5]).isdigit() else 0,
+            "discount":    int(row[6]) if len(row) > 6 and str(row[6]).isdigit() else 0,
+            "unit":        row[7]  if len(row) > 7  else "",
+            "active":      (row[8].upper() == "TRUE") if len(row) > 8 else True,
+            "images":      [x.strip() for x in row[10].split(",") if x.strip()] if len(row) > 10 and row[10] else [],
+            "category":    row[11] if len(row) > 11 else "",
+        }
+        lines_map.setdefault(line_id, []).append(prod)
+
+    lines = []
+    for lid in ["bazi-cake", "afternoon-tea"]:
+        lines.append({
+            "id":       lid,
+            "name":     brand.get(f"{lid}_name", lid),
+            "subtitle": brand.get(f"{lid}_subtitle", ""),
+            "products": lines_map.get(lid, []),
+        })
+
+    return {
+        "brand": {
+            "name":         "Laiten",
+            "chinese":      "萊點",
+            "tagline":      brand.get("tagline",      "山交手作，溫度共享"),
+            "subtitle":     brand.get("subtitle",     "每一份甜點，都為你而設計"),
+            "cta_text":     brand.get("cta_text",     "立即詢問"),
+            "cta_url_bazi": brand.get("cta_url_bazi", ""),
+            "cta_url_tea":  brand.get("cta_url_tea",  ""),
+        },
+        "lines": lines,
+    }
+
+
+def _save_laiten(data: dict):
+    brand = data["brand"]
+    lines = data["lines"]
+
+    # 寫品牌設定
+    brand_values = [
+        ["欄位", "值"],
+        ["tagline",      brand.get("tagline", "")],
+        ["subtitle",     brand.get("subtitle", "")],
+        ["cta_text",     brand.get("cta_text", "")],
+        ["cta_url_bazi", brand.get("cta_url_bazi", "")],
+        ["cta_url_tea",  brand.get("cta_url_tea", "")],
+    ]
+    for line in lines:
+        brand_values.append([f"{line['id']}_name",     line["name"]])
+        brand_values.append([f"{line['id']}_subtitle", line["subtitle"]])
+    _gws_clear("品牌設定!A1:B20")
+    _gws_write("品牌設定!A1", brand_values)
+
+    # 寫產品主檔
+    prod_values = [["line_id","product_id","name","badge","description",
+                    "price","discount","unit","active","sort_order","images","category"]]
+    for line in lines:
+        for i, p in enumerate(line["products"]):
+            prod_values.append([
+                line["id"],
+                p.get("id", f"prod-{i+1}"),
+                p.get("name", ""),
+                p.get("badge", ""),
+                p.get("description", ""),
+                str(p.get("price", 0)),
+                str(p.get("discount", 0)),
+                p.get("unit", ""),
+                "TRUE" if p.get("active", True) else "FALSE",
+                str(i + 1),
+                ",".join(p.get("images", [])),
+                p.get("category", ""),
+            ])
+    _gws_clear("產品主檔!A1:L500")
+    _gws_write("產品主檔!A1", prod_values)
+
+
+def _list_images() -> list:
+    if not IMAGES_DIR.exists():
+        return []
+    return sorted(f.name for f in IMAGES_DIR.iterdir() if f.suffix.lower() in IMG_EXTS)
+
+
+# ── Laiten 路由 ───────────────────────────────────────────────────
+
+@app.route("/admin/laiten")
+def laiten_index():
+    return redirect(url_for("laiten_brand"))
+
+
+@app.route("/admin/laiten/brand", methods=["GET", "POST"])
+def laiten_brand():
+    data = _load_laiten()
+    msg = None
+    if request.method == "POST":
+        b = data["brand"]
+        b["tagline"]      = request.form.get("tagline", "").strip()
+        b["subtitle"]     = request.form.get("subtitle", "").strip()
+        b["cta_url_bazi"] = request.form.get("cta_url_bazi", "").strip()
+        b["cta_url_tea"]  = request.form.get("cta_url_tea", "").strip()
+        b["cta_text"]     = request.form.get("cta_text", "").strip()
+        _save_laiten(data)
+        msg = "ok"
+    return render_template("admin/laiten_brand.html", brand=data["brand"], msg=msg)
+
+
+@app.route("/admin/laiten/products/<line_id>", methods=["GET", "POST"])
+def laiten_products(line_id):
+    data  = _load_laiten()
+    line  = next((l for l in data["lines"] if l["id"] == line_id), None)
+    if not line:
+        return "產品線不存在", 404
+    msg = None
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "update":
+            line["name"]     = request.form.get("line_name", line["name"])
+            line["subtitle"] = request.form.get("line_subtitle", "")
+            for i, p in enumerate(line["products"]):
+                p["name"]        = request.form.get(f"p{i}_name", p.get("name", ""))
+                p["badge"]       = request.form.get(f"p{i}_badge", "")
+                p["description"] = request.form.get(f"p{i}_desc", "")
+                p["unit"]        = request.form.get(f"p{i}_unit", "")
+                p["category"]    = request.form.get(f"p{i}_category", "")
+                try:
+                    p["price"]    = int(request.form.get(f"p{i}_price", 0))
+                    p["discount"] = int(request.form.get(f"p{i}_discount", 0))
+                except ValueError:
+                    pass
+                p["images"] = request.form.getlist(f"p{i}_images")
+            msg = "ok"
+        elif action == "add":
+            line["products"].append({
+                "id": f"prod-{len(line['products'])+1}",
+                "name": "新產品", "badge": "", "description": "",
+                "price": 0, "discount": 0, "unit": "", "images": []
+            })
+            msg = "added"
+        elif action == "delete":
+            idx = int(request.form.get("idx", -1))
+            if 0 <= idx < len(line["products"]):
+                line["products"].pop(idx)
+            msg = "deleted"
+        _save_laiten(data)
+    images = _list_images()
+    return render_template(
+        "admin/laiten_products.html",
+        line=line, images=images, msg=msg, all_lines=data["lines"]
+    )
+
+
+@app.route("/admin/laiten/images", methods=["GET", "POST"])
+def laiten_images():
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    msg = None
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "delete":
+            fname = secure_filename(request.form.get("filename", ""))
+            fpath = IMAGES_DIR / fname
+            if fpath.exists() and fpath.suffix.lower() in IMG_EXTS:
+                fpath.unlink()
+                msg = "deleted"
+        else:
+            uploaded = 0
+            for f in request.files.getlist("files"):
+                if f and f.filename and Path(f.filename).suffix.lower() in IMG_EXTS:
+                    f.save(IMAGES_DIR / secure_filename(f.filename))
+                    uploaded += 1
+            if uploaded:
+                msg = f"uploaded:{uploaded}"
+    return render_template("admin/laiten_images.html", images=_list_images(), msg=msg)
+
+
+@app.route("/admin/laiten/image/<filename>")
+def laiten_image_file(filename):
+    return send_from_directory(IMAGES_DIR, filename)
+
+
+@app.route("/admin/laiten/sync", methods=["GET", "POST"])
+def laiten_sync():
+    import subprocess
+    result = None
+    if request.method == "POST":
+        commit_msg = request.form.get("commit_msg", "update: Laiten 產品資料更新").strip()
+        repo_root = CAKE_ROOT
+        try:
+            subprocess.run(["git", "add", "laiten_public"], cwd=repo_root, check=True, capture_output=True)
+            diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=repo_root, capture_output=True)
+            if diff.returncode == 0:
+                result = ("warn", "沒有偵測到變更，已是最新版本。")
+            else:
+                subprocess.run(["git", "commit", "-m", commit_msg], cwd=repo_root, check=True, capture_output=True)
+                subprocess.run(["git", "push"], cwd=repo_root, check=True, capture_output=True)
+                result = ("ok", "推送完成！Netlify 會在 1-2 分鐘內自動更新。")
+        except subprocess.CalledProcessError as e:
+            err = e.stderr.decode(errors="replace") if e.stderr else str(e)
+            result = ("err", f"操作失敗：{err}")
+    data = _load_laiten()
+    return render_template("admin/laiten_sync.html", result=result, data=data)
 
 
 if __name__ == "__main__":
