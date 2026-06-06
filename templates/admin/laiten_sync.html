@@ -89,8 +89,8 @@
   </div>
 
   <!-- CTA 確認 -->
-  {% if '請替換' in data.brand.cta_url or not data.brand.cta_url.startswith('http') %}
-  <div class="alert alert-warn">⚠️ 還沒設定 Google 表單網址，請先到「品牌設定」填入正確網址再推送。</div>
+  {% if not data.brand.cta_url_bazi or not data.brand.cta_url_bazi.startswith('http') %}
+  <div class="alert alert-warn">⚠️ 還沒設定八字蛋糕詢問網址，請先到「品牌設定」填入正確網址再推送。</div>
   {% endif %}
 
   <!-- 推送 -->

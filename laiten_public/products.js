@@ -4,7 +4,8 @@ const PRODUCTS_DATA = {
     "chinese": "萊點",
     "tagline": "山交手作，溫度共享",
     "subtitle": "每一份甜點，都為你而設計",
-    "cta_url": "https://forms.gle/請替換成你的表單網址",
+    "cta_url_bazi": "",
+  "cta_url_tea": "",
     "cta_text": "立即詢問"
   },
   "lines": [
