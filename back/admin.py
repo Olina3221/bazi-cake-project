@@ -14,9 +14,9 @@ CAKE_ROOT    = Path(__file__).parent.parent
 LAITEN_DIR   = CAKE_ROOT / "laiten_public"
 IMAGES_DIR   = LAITEN_DIR / "images"
 IMG_EXTS     = {".jpg", ".jpeg", ".png", ".webp"}
-SHEET_ID     = "1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo"
+SHEET_ID     = "1oYJ7qO4E40aw1RVip-O3NM6X_U-mYxGT1NIn_YvpW2E"
 
-os.environ.setdefault("GOOGLE_SHEETS_ID", SHEET_ID)
+os.environ["GOOGLE_SHEETS_ID"] = SHEET_ID
 
 import db
 GWS_CMD      = r"C:\Users\chin3\AppData\Roaming\npm\gws.cmd"
