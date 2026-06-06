@@ -88,7 +88,7 @@
 <body>
 
 <!-- NAV -->
-<nav style="background-color:var(--cream);border-bottom:1px solid var(--border);" class="sticky top-0 z-50">
+<nav style="background:rgba(249,245,237,0.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(180,160,130,0.2);" class="fixed top-0 left-0 right-0 z-50">
   <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
     <div>
       <span class="text-xl tracking-widest font-light" style="color:var(--dark);">Laiten</span>
@@ -105,9 +105,15 @@
 </nav>
 
 <!-- HERO -->
-<section class="max-w-5xl mx-auto px-6 py-12">
-  <img src="images/banner.png" alt="尋味時光，溫度共享" style="width:100%;display:block;border-radius:8px;">
+<section class="max-w-5xl mx-auto px-6" style="padding-top:5rem;padding-bottom:0;">
+  <div style="position:relative;border-radius:8px;overflow:hidden;">
+    <img src="images/banner.png" alt="尋味時光，溫度共享" style="width:100%;display:block;">
+    <div style="position:absolute;bottom:0;left:0;right:0;height:140px;background:linear-gradient(to bottom,transparent,var(--cream));pointer-events:none;"></div>
+  </div>
 </section>
+
+<!-- SPACER -->
+<div style="height:3rem;"></div>
 
 <!-- TABS -->
 <section class="max-w-5xl mx-auto px-6">
