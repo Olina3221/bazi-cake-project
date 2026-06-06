@@ -611,6 +611,14 @@ def laiten_sync():
         commit_msg = request.form.get("commit_msg", "update: Laiten 產品資料更新").strip()
         repo_root = CAKE_ROOT
         try:
+            # 從 Google Sheets 生成最新的 products.js
+            latest = _load_laiten()
+            products_js = (LAITEN_DIR / "products.js")
+            products_js.write_text(
+                "const PRODUCTS_DATA = " + json.dumps(latest, ensure_ascii=False, indent=2) + ";\n",
+                encoding="utf-8"
+            )
+
             subprocess.run(["git", "add", "laiten_public"], cwd=repo_root, check=True, capture_output=True)
             diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=repo_root, capture_output=True)
             if diff.returncode == 0:
