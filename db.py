@@ -92,7 +92,7 @@ def _row_to_order(row: list) -> dict:
 
 def load_orders() -> list:
     """讀取所有訂單，回傳 list of dict，最新在前"""
-    ws = _get_sheet_safe("orders")
+    ws = _get_sheet_safe("八字蛋糕訂單")
     if ws is None:
         return []
     rows = ws.get_all_values()
@@ -118,7 +118,7 @@ def load_orders() -> list:
 
 def get_next_order_id() -> int:
     """取得下一個訂單流水號"""
-    ws = _get_sheet("orders")
+    ws = _get_sheet("八字蛋糕訂單")
     rows = ws.get_all_values()
     if len(rows) <= 1:
         return 1
@@ -134,7 +134,7 @@ def get_next_order_id() -> int:
 
 def create_order(name, phone, birthday, shichen, wish_main, wish_sub, note) -> int:
     """新增一筆訂單，回傳新訂單 id"""
-    ws = _get_sheet("orders")
+    ws = _get_sheet("八字蛋糕訂單")
     new_id = get_next_order_id()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
     ws.append_row([
@@ -154,7 +154,7 @@ def update_order_fields(order_id, fields: dict):
         "status": 10, "bazi_result": 11, "ingredients": 12,
         "card_text": 13, "suggestion": 14
     }
-    ws = _get_sheet("orders")
+    ws = _get_sheet("八字蛋糕訂單")
     rows = ws.get_all_values()
 
     for i, row in enumerate(rows[1:], start=2):  # start=2 因為第1列是標題
@@ -256,12 +256,12 @@ def init_sheets():
     第一次部署時呼叫一次即可。
     """
     sh = _sh  # 先確保連線
-    _get_sheet("orders")  # trigger lazy init
+    _get_sheet("八字蛋糕訂單")  # trigger lazy init
 
     existing = [ws.title for ws in _sh.worksheets()]
 
-    if "orders" not in existing:
-        ws = _sh.add_worksheet(title="orders", rows=1000, cols=14)
+    if "八字蛋糕訂單" not in existing:
+        ws = _sh.add_worksheet(title="八字蛋糕訂單", rows=1000, cols=14)
         ws.append_row(ORDERS_HEADER)
 
     if "ingredients" not in existing:
@@ -269,7 +269,7 @@ def init_sheets():
         ws.append_row(INGREDIENTS_HEADER)
 
     # 確保標題列存在
-    for tab, header in [("orders", ORDERS_HEADER), ("ingredients", INGREDIENTS_HEADER)]:
+    for tab, header in [("八字蛋糕訂單", ORDERS_HEADER), ("ingredients", INGREDIENTS_HEADER)]:
         ws = _get_sheet(tab)
         first = ws.row_values(1)
         if not first:
