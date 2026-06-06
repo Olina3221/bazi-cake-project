@@ -6,15 +6,19 @@ import anthropic
 import json
 import re
 import subprocess
+import os
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-import db
 
 CAKE_ROOT    = Path(__file__).parent.parent
 LAITEN_DIR   = CAKE_ROOT / "laiten_public"
 IMAGES_DIR   = LAITEN_DIR / "images"
 IMG_EXTS     = {".jpg", ".jpeg", ".png", ".webp"}
 SHEET_ID     = "1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo"
+
+os.environ.setdefault("GOOGLE_SHEETS_ID", SHEET_ID)
+
+import db
 GWS_CMD      = r"C:\Users\chin3\AppData\Roaming\npm\gws.cmd"
 
 # ── Google Sheets 存取層 ──────────────────────────────────────────────
