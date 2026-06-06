@@ -295,7 +295,7 @@ def api_analyze():
 
     client = anthropic.Anthropic()
     msg1 = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-opus-4-8",
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt_analysis}]
     )
@@ -324,7 +324,7 @@ def api_analyze():
 - 五行值只能是：木、火、土、金、水 其中之一"""
 
     msg2 = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=200,
         messages=[{"role": "user", "content": prompt_extract}]
     )
@@ -386,7 +386,7 @@ def api_generate_card():
 
     client = anthropic.Anthropic()
     message = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=300,
         messages=[{"role": "user", "content": prompt}]
     )

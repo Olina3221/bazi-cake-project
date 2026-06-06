@@ -99,8 +99,21 @@ def load_orders() -> list:
     if len(rows) <= 1:
         return []
     data_rows = rows[1:]  # 跳過標題列
-    orders = [_row_to_order(r) for r in data_rows if r and r[0]]
-    return list(reversed(orders))
+    result = []
+    auto_id = 1
+    for r in data_rows:
+        if not r:
+            continue
+        if not r[0]:
+            r = list(r)
+            r[0] = str(auto_id)
+        else:
+            try:
+                auto_id = int(r[0]) + 1
+            except ValueError:
+                pass
+        result.append(_row_to_order(r))
+    return list(reversed(result))
 
 
 def get_next_order_id() -> int:
