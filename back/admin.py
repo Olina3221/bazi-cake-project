@@ -453,7 +453,7 @@ def _load_laiten() -> dict:
         "brand": {
             "name":         "Laiten",
             "chinese":      "萊點",
-            "tagline":      brand.get("tagline",      "山交手作，溫度共享"),
+            "tagline":      brand.get("tagline",      "尋味時光，溫度共享"),
             "subtitle":     brand.get("subtitle",     "每一份甜點，都為你而設計"),
             "cta_text":     brand.get("cta_text",     "立即詢問"),
             "cta_url_bazi": brand.get("cta_url_bazi", ""),
