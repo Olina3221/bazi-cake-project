@@ -127,7 +127,7 @@ def admin_index():
     return render_template("admin/index.html", orders=orders)
 
 
-@app.route("/admin/order/<int:order_id>")
+@app.route("/admin/order/<order_id>")  # Task1 D2：id 改字串日期前綴，路由不可再用 <int:>
 def admin_order_detail(order_id):
     orders = db.load_orders()
     order = next((o for o in orders if str(o["id"]) == str(order_id)), None)
@@ -442,6 +442,111 @@ def admin_print():
     return render_template("admin/print.html", orders=printable)
 
 
+# ── 前台訂單收件匣（Task1 Phase 2）─────────────────────────────────
+
+@app.route("/admin/inbox")
+def admin_inbox():
+    """列出兩個前台訂單 tab 中「已轉入」欄為空的單，分區顯示。"""
+    err = None
+    bazi_orders, tea_orders = [], []
+    try:
+        bazi_orders = db.load_inbox_bazi(only_unconverted=True)
+        tea_orders  = db.load_inbox_tea(only_unconverted=True)
+    except Exception as e:
+        err = f"讀取收件匣失敗：{e}"
+    # 轉單結果（由 convert 端點 redirect 帶回）
+    flash_status = request.args.get("msg")      # ok / warn / err
+    flash_detail = request.args.get("detail", "")
+    return render_template("admin/inbox.html",
+                           bazi_orders=bazi_orders, tea_orders=tea_orders, err=err,
+                           flash_status=flash_status, flash_detail=flash_detail)
+
+
+@app.route("/admin/inbox/convert", methods=["POST"])
+def admin_inbox_convert():
+    """八字蛋糕單一鍵轉入 orders（複用 create_order，D2/D3/D4 連動）。
+    心願主項必填；轉單成功後才標記來源 tab「已轉入」欄（D5）。"""
+    try:
+        row_idx   = int(request.form.get("row", 0))
+    except ValueError:
+        row_idx = 0
+    wish_main = request.form.get("wish_main", "").strip()
+    wish_sub  = request.form.get("wish_sub", "").strip()
+
+    if row_idx < 1:
+        return _inbox_redirect("err", "轉單參數錯誤（缺少來源列）")
+    if not wish_main:
+        return _inbox_redirect("err", "心願主項為八字分析必填，請補填後再轉單")
+
+    src = db.get_inbox_bazi_row(row_idx)
+    if src is None:
+        return _inbox_redirect("err", "找不到來源訂單（可能已被處理）")
+    # 防重轉：來源「已轉入」欄非空則擋下（並發保險，收件匣已過濾過）
+    if str(src.get("converted", "")).strip():
+        return _inbox_redirect("warn", "此單已轉入，請勿重複轉單")
+
+    try:
+        new_id = db.create_order(
+            name=src.get("name", ""),
+            phone=src.get("phone", ""),
+            birthday=src.get("birthdate", ""),
+            shichen=src.get("birth_hour", ""),
+            wish_main=wish_main,
+            wish_sub=wish_sub,
+            note=src.get("notes", ""),
+            created_at=src.get("created_at", "") or None,  # D3：前台下單時間
+            product=src.get("product", ""),
+            quantity=src.get("quantity", ""),
+            pickup_date=src.get("pickup_date", ""),
+            delivery=src.get("delivery", ""),
+        )
+    except Exception as e:
+        # 目標寫入失敗 → 不標記來源「已轉入」，單子留在收件匣
+        return _inbox_redirect("err", f"轉入 orders 失敗，未標記已轉入：{e}")
+
+    # 目標寫入成功後才標記來源（D5）
+    try:
+        db.mark_inbox_bazi_converted(row_idx, f"orders:{new_id}")
+    except Exception as e:
+        return _inbox_redirect(
+            "warn", f"已建立訂單 {new_id}，但標記來源失敗（請手動確認，避免重複轉單）：{e}")
+    return _inbox_redirect("ok", f"已轉入 orders，訂單編號 {new_id}")
+
+
+@app.route("/admin/inbox/convert_tea", methods=["POST"])
+def admin_inbox_convert_tea():
+    """下午茶單一鍵轉入「下午茶管理」tab（狀態固定「待處理」，D1/D8）。
+    下午茶一律不得寫入 orders。轉入成功後才標記來源「已轉入」（D5）。"""
+    try:
+        row_idx = int(request.form.get("row", 0))
+    except ValueError:
+        row_idx = 0
+    if row_idx < 1:
+        return _inbox_redirect("err", "轉單參數錯誤（缺少來源列）")
+
+    src = db.get_inbox_tea_row(row_idx)
+    if src is None:
+        return _inbox_redirect("err", "找不到來源訂單（可能已被處理）")
+    if str(src.get("converted", "")).strip():
+        return _inbox_redirect("warn", "此單已轉入，請勿重複轉單")
+
+    try:
+        status = db.add_tea_manage_order(src)
+    except Exception as e:
+        return _inbox_redirect("err", f"轉入下午茶管理失敗，未標記已轉入：{e}")
+
+    try:
+        db.mark_inbox_tea_converted(row_idx, f"下午茶管理:{status}")
+    except Exception as e:
+        return _inbox_redirect(
+            "warn", f"已轉入下午茶管理，但標記來源失敗（請手動確認）：{e}")
+    return _inbox_redirect("ok", "已轉入下午茶管理（狀態：待處理）")
+
+
+def _inbox_redirect(status, msg):
+    return redirect(url_for("admin_inbox", msg=status, detail=msg))
+
+
 # ── Laiten 輔助 ───────────────────────────────────────────────────
 
 def _parse_laiten(brand_rows: list, prod_rows: list) -> dict:
@@ -579,11 +684,22 @@ def laiten_brand():
             b["cta_url_bazi"] = request.form.get("cta_url_bazi", "").strip()
             b["cta_url_tea"]  = request.form.get("cta_url_tea", "").strip()
             b["cta_text"]     = request.form.get("cta_text", "").strip()
-            try:
-                _save_laiten(data)
-                msg = "ok"
-            except GwsError as e:
-                err = f"儲存失敗（資料可能未寫入或寫入不完整，請重試）：{e}"
+            # Task1 D6 防呆：cta_url 是前台送單端點，空值禁止存檔。
+            # 必須攔在 _save_laiten（clear + 整份重寫）之前，否則 clear 會先清掉舊值。
+            empty_cta = [
+                label for field, label in
+                (("cta_url_bazi", "八字蛋糕送單網址"), ("cta_url_tea", "下午茶送單網址"))
+                if not b.get(field, "").strip()
+            ]
+            if empty_cta:
+                err = (f"「{ '、'.join(empty_cta) }」為前台送單端點，不可留空，"
+                       "否則前台將無法送單。請填入有效網址後再儲存。")
+            else:
+                try:
+                    _save_laiten(data)
+                    msg = "ok"
+                except GwsError as e:
+                    err = f"儲存失敗（資料可能未寫入或寫入不完整，請重試）：{e}"
     return render_template("admin/laiten_brand.html", brand=data["brand"], msg=msg, err=err)
 
 

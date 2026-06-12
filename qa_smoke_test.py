@@ -1,6 +1,9 @@
 # qa_smoke_test.py - 萊點（Laiten）八字蛋糕系統 全系統迴歸冒煙基線
 #
-# 基線數：36 PASS + 1 SKIP（2026-06-13 Task1 Phase 1 同步後實跑全綠）
+# 基線數：42 PASS + 1 SKIP（2026-06-13 Task1 Phase 2 同步後實跑全綠）
+#   Phase 2 新增 6 項：新舊 id 並存 order detail、GET /admin/inbox、
+#   inbox convert（心願必填擋下 / 八字轉單成功 / 下午茶轉單成功）、D6 品牌頁空 cta_url 擋下。
+#   （Phase 4 死碼刪除尚未執行，本基線仍 import app/ingredient_classifier/ingredient_web）
 #
 # 用途：任何程式修改完成後，必須先跑本測試確認沒有「改A壞B」。
 # 執行：python qa_smoke_test.py（需要 flask / gspread / anthropic / openpyxl）
@@ -115,7 +118,17 @@ _SAMPLE_ORDER_ROW = [
 ]
 _sample_order = db._row_to_order(_SAMPLE_ORDER_ROW)
 
-db.load_orders = lambda: [_sample_order]
+# Task1 D2：新日期前綴 id 的訂單列（18 欄，尾端 4 欄為前台帶入的品項/數量/取貨日期/外送）
+_SAMPLE_ORDER_ROW_NEW = [
+    "20260613-01", "2026-06-13 23:50", "新格式客", "0912000000", "1990-01-01", "子時",
+    "事業", "升遷", "備註", "待處理",
+    "", "", "", "",
+    "專屬命格蛋糕", "1", "2026-07-01", "面交",
+]
+_sample_order_new = db._row_to_order(_SAMPLE_ORDER_ROW_NEW)
+
+# 新舊 id 並存（D2 舊資料相容）：舊整數 id=1 與新日期 id 同時存在，皆字串查找
+db.load_orders = lambda: [_sample_order, _sample_order_new]
 db.load_ingredients = lambda: [
     ["藍莓", "水", "木", "夾層,秀面", "常備", "深紫近黑屬水", "微酸沉靜", "涼潤", ""],
 ]
@@ -123,7 +136,32 @@ db.save_ingredient = lambda data: "saved"
 db.update_ingredient = lambda data: "updated"
 db.delete_ingredient = lambda name: "deleted"
 db.update_order_fields = lambda order_id, fields: None
-db.create_order = _make_blocker("db.create_order")
+# Task1 Phase 2：create_order / get_next_order_id 被 /admin/inbox/convert 複用（裁定一保留），
+# 不能再用 blocker（會誤殺合法呼叫）。改為回傳假的日期前綴字串 id（D2）。
+db.create_order = lambda *a, **k: "20260613-99"
+db.get_next_order_id_by_date = lambda date_str: f"{date_str}-99"
+db.get_next_order_id = lambda: "20260613-99"
+
+# Task1 Phase 2：前台訂單收件匣的 db 函式 mock（不打 Sheets）。
+# 一筆未轉八字單 + 一筆未轉下午茶單，row 為 1-based 資料列序。
+_SAMPLE_INBOX_BAZI = {
+    "row": 1, "created_at": "2026-06-13 23:50", "name": "煙霧八字客",
+    "phone": "0912000000", "birthdate": "1990-01-01", "birth_hour": "子時",
+    "product": "專屬命格蛋糕", "quantity": "1", "pickup_date": "2026-07-01",
+    "delivery": "面交", "notes": "測試", "converted": "",
+}
+_SAMPLE_INBOX_TEA = {
+    "row": 1, "created_at": "2026-06-13 10:00", "company": "煙霧公司",
+    "contact": "陳", "phone": "0911000000", "items": "茶點50份",
+    "event_date": "2026-08-01", "total_qty": "50", "notes": "", "converted": "",
+}
+db.load_inbox_bazi = lambda only_unconverted=True: [dict(_SAMPLE_INBOX_BAZI)]
+db.load_inbox_tea = lambda only_unconverted=True: [dict(_SAMPLE_INBOX_TEA)]
+db.get_inbox_bazi_row = lambda row_idx: dict(_SAMPLE_INBOX_BAZI) if row_idx == 1 else None
+db.get_inbox_tea_row = lambda row_idx: dict(_SAMPLE_INBOX_TEA) if row_idx == 1 else None
+db.mark_inbox_bazi_converted = lambda row_idx, mark: None
+db.mark_inbox_tea_converted = lambda row_idx, mark: None
+db.add_tea_manage_order = lambda tea, status=None: "待處理"
 
 # ─── Smoke 2：Flask app 可建立、路由表可列出 ─────────────────────────────────
 
@@ -132,7 +170,8 @@ print("\n=== Smoke 2: Flask app 與路由表 ===")
 try:
     rules = {r.rule for r in admin.app.url_map.iter_rules()}
     expected = {
-        "/", "/admin", "/admin/order/<int:order_id>",
+        "/", "/admin", "/admin/order/<order_id>",  # Task1 D2：id 改字串日期前綴，路由不可 <int:>
+        "/admin/inbox", "/admin/inbox/convert", "/admin/inbox/convert_tea",  # Task1 Phase 2 收件匣
         "/admin/ingredients", "/admin/api/ingredients", "/admin/api/classify",
         "/admin/api/ingredient/save", "/admin/api/ingredient/update",
         "/admin/api/ingredient/delete",
@@ -178,8 +217,10 @@ GET_CASES = [
     # (路徑, 可接受的狀態碼)
     ("/",                                  {302}),
     ("/admin",                             {200}),
-    ("/admin/order/1",                     {200}),
+    ("/admin/order/1",                     {200}),  # 舊整數 id 仍可查找（D2 相容）
+    ("/admin/order/20260613-01",           {200}),  # 新日期前綴 id 路由可接受字串並命中
     ("/admin/order/999999",                {404}),
+    ("/admin/inbox",                       {200}),  # Task1 Phase 2 收件匣
     ("/admin/ingredients",                 {200}),
     ("/admin/api/ingredients",             {200}),
     ("/admin/print",                       {200}),
@@ -261,6 +302,66 @@ except AssertionError as e:
     record("Smoke-3 POST 食材 save/update/delete（mock db）", "FAIL", str(e))
 except Exception:
     record("Smoke-3 POST 食材 save/update/delete（mock db）", "FAIL",
+           traceback.format_exc(limit=3))
+
+# ── Task1 Phase 2：收件匣轉單冒煙（create_order / inbox db 已 mock）──
+
+# 八字轉單：缺心願主項 → 應擋下（redirect 回 inbox 帶 err），不呼叫 create_order
+try:
+    resp = client.post("/admin/inbox/convert", data={"row": "1", "wish_main": ""})
+    assert resp.status_code in {302, 303}, f"應 redirect，實際 {resp.status_code}"
+    assert "msg=err" in resp.headers.get("Location", ""), \
+        f"心願主項空應帶 err，實際 Location={resp.headers.get('Location')}"
+    record("Smoke-3 POST /admin/inbox/convert（心願主項必填擋下）", "PASS")
+except AssertionError as e:
+    record("Smoke-3 POST /admin/inbox/convert（心願主項必填擋下）", "FAIL", str(e))
+except Exception:
+    record("Smoke-3 POST /admin/inbox/convert（心願主項必填擋下）", "FAIL",
+           traceback.format_exc(limit=3))
+
+# 八字轉單：補心願主項 → 成功（create_order mock 回假 id，redirect 帶 ok）
+try:
+    resp = client.post("/admin/inbox/convert",
+                       data={"row": "1", "wish_main": "事業", "wish_sub": "升遷"})
+    assert resp.status_code in {302, 303}, f"應 redirect，實際 {resp.status_code}"
+    assert "msg=ok" in resp.headers.get("Location", ""), \
+        f"補心願主項應成功，實際 Location={resp.headers.get('Location')}"
+    record("Smoke-3 POST /admin/inbox/convert（八字轉單成功）", "PASS")
+except AssertionError as e:
+    record("Smoke-3 POST /admin/inbox/convert（八字轉單成功）", "FAIL", str(e))
+except Exception:
+    record("Smoke-3 POST /admin/inbox/convert（八字轉單成功）", "FAIL",
+           traceback.format_exc(limit=3))
+
+# 下午茶轉單：成功（add_tea_manage_order mock，不寫 orders）
+try:
+    resp = client.post("/admin/inbox/convert_tea", data={"row": "1"})
+    assert resp.status_code in {302, 303}, f"應 redirect，實際 {resp.status_code}"
+    assert "msg=ok" in resp.headers.get("Location", ""), \
+        f"下午茶轉單應成功，實際 Location={resp.headers.get('Location')}"
+    record("Smoke-3 POST /admin/inbox/convert_tea（下午茶轉單成功）", "PASS")
+except AssertionError as e:
+    record("Smoke-3 POST /admin/inbox/convert_tea（下午茶轉單成功）", "FAIL", str(e))
+except Exception:
+    record("Smoke-3 POST /admin/inbox/convert_tea（下午茶轉單成功）", "FAIL",
+           traceback.format_exc(limit=3))
+
+# Task1 D6：品牌頁 cta_url 空值禁止存檔——攔在 _save_laiten clear 之前。
+# 攔截成功則不會呼叫被 blocker 的 _gws_clear/_gws_write（Smoke-7 亦會雙重把關）。
+try:
+    resp = client.post("/admin/laiten/brand", data={
+        "tagline": "x", "subtitle": "y", "cta_text": "立即詢問",
+        "cta_url_bazi": "", "cta_url_tea": "https://gas/tea",  # bazi 空
+    })
+    assert resp.status_code == 200, f"狀態碼 {resp.status_code}"
+    html = resp.get_data(as_text=True)
+    assert "不可留空" in html, "空 cta_url 應顯示禁止存檔的錯誤訊息"
+    assert "已儲存" not in html, "空 cta_url 不應顯示存檔成功"
+    record("Smoke-3 POST /admin/laiten/brand（D6 空 cta_url 擋下）", "PASS")
+except AssertionError as e:
+    record("Smoke-3 POST /admin/laiten/brand（D6 空 cta_url 擋下）", "FAIL", str(e))
+except Exception:
+    record("Smoke-3 POST /admin/laiten/brand（D6 空 cta_url 擋下）", "FAIL",
            traceback.format_exc(limit=3))
 
 # ─── Smoke 4：ingredient_web 路由冒煙（唯讀，不打 API）──────────────────────

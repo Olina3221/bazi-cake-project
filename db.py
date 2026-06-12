@@ -16,6 +16,7 @@ app.py / admin.py 只呼叫這裡的函式，完全不碰 gspread。
 """
 
 import os
+import re
 import json
 from datetime import datetime
 import gspread
@@ -62,11 +63,17 @@ def _get_sheet_safe(tab_name: str):
 
 # ── Orders ────────────────────────────────────────────────────────
 
+# Task1 D4：orders 擴欄 18 欄。新 4 欄（品項/數量/取貨日期/外送）追加在尾端 15-18，
+# 不動 1-14，使 update_order_fields 的 col_map（10-14）零影響。
 ORDERS_HEADER = [
     "id", "建立時間", "姓名", "電話", "生日", "時辰",
     "心願主項", "心願細項", "備註", "狀態",
-    "八字分析", "選用食材", "小卡文案", "五行建議"
+    "八字分析", "選用食材", "小卡文案", "五行建議",
+    "品項", "數量", "取貨日期", "外送"
 ]
+
+# Task1 D2：訂單編號日期前綴格式 YYYYMMDD-NN（例 20260613-01）。
+_ID_DATE_RE = re.compile(r"^(\d{8})-(\d+)$")
 
 
 def _row_to_order(row: list) -> dict:
@@ -87,6 +94,10 @@ def _row_to_order(row: list) -> dict:
         "ingredients": g(11),
         "card_text":   g(12),
         "suggestion":  g(13),
+        "product":     g(14),
+        "quantity":    g(15),
+        "pickup_date": g(16),
+        "delivery":    g(17),
     }
 
 
@@ -100,47 +111,93 @@ def load_orders() -> list:
         return []
     data_rows = rows[1:]  # 跳過標題列
     result = []
-    auto_id = 1
-    for r in data_rows:
+    # Task1 D2：id 改日期前綴 YYYYMMDD-NN（字串），無法再用整數遞增補位。
+    # 空 id 列（理論上不該出現）以 row 序號補一個可辨識的 placeholder，
+    # 不嘗試解析/遞增前一列 id（新舊格式皆字串，整數遞增不再適用）。
+    for idx, r in enumerate(data_rows, start=1):
         if not r:
             continue
         if not r[0]:
             r = list(r)
-            r[0] = str(auto_id)
-        else:
-            try:
-                auto_id = int(r[0]) + 1
-            except ValueError:
-                pass
+            r[0] = f"row{idx}"  # 缺 id 的容錯標記，避免空 id 影響顯示/查找
         result.append(_row_to_order(r))
     return list(reversed(result))
 
 
-def get_next_order_id() -> int:
-    """取得下一個訂單流水號"""
+def _max_seq_for_date(rows: list, date_str: str) -> int:
+    """掃描 orders 既有列，回傳指定日期 YYYYMMDD 的最大序號（無則 0）。
+
+    遇無法解析為 YYYYMMDD-NN 的舊 id（如整數 '1'）一律略過，
+    不納入任何日期群組的序號計算（Task1 D2 舊資料相容）。
+    """
+    max_seq = 0
+    for row in rows:
+        if not row or not row[0]:
+            continue
+        m = _ID_DATE_RE.match(str(row[0]).strip())
+        if m and m.group(1) == date_str:
+            seq = int(m.group(2))
+            if seq > max_seq:
+                max_seq = seq
+    return max_seq
+
+
+def get_next_order_id_by_date(date_str: str) -> str:
+    """Task1 D2：依日期 YYYYMMDD 取下一個訂單編號 YYYYMMDD-NN。
+
+    - date_str：8 碼日期（取前台下單時間之日期，非轉單當下）。
+    - 序號 = 該日期既有最大序號 + 1，補零至兩位；超過 99 自然進位成 3 位。
+    - 不同日期各自從 01 起算。
+    """
     ws = _get_sheet("orders")
     rows = ws.get_all_values()
-    if len(rows) <= 1:
-        return 1
-    # 找最後一列有效 id
-    for row in reversed(rows[1:]):
-        if row and row[0]:
-            try:
-                return int(row[0]) + 1
-            except ValueError:
-                pass
-    return 1
+    data_rows = rows[1:] if len(rows) > 1 else []
+    next_seq = _max_seq_for_date(data_rows, date_str) + 1
+    return f"{date_str}-{next_seq:02d}"
 
 
-def create_order(name, phone, birthday, shichen, wish_main, wish_sub, note) -> int:
-    """新增一筆訂單，回傳新訂單 id"""
+# 向後相容別名：舊呼叫者若用 get_next_order_id()，以今日日期取號。
+def get_next_order_id() -> str:
+    """取得下一個訂單編號（Task1 D2 改為日期前綴；預設用今日日期）。"""
+    return get_next_order_id_by_date(datetime.now().strftime("%Y%m%d"))
+
+
+def _date_str_from_created_at(created_at: str) -> str:
+    """從建立時間字串萃取 YYYYMMDD；無法解析時 fallback 今日日期。
+
+    支援多種前台格式（GAS 寫入有 '2026/6/6 13:59:22' 單位數、
+    亦有 '2026-06-13 23:50' 補零、'2026/06/13 2:32:48' 等）。
+    解析「年-月-日」開頭，月/日各 1-2 位皆可，組成補零的 YYYYMMDD。
+    """
+    if created_at:
+        m = re.match(r"\s*(\d{4})\D{1,2}(\d{1,2})\D{1,2}(\d{1,2})", str(created_at))
+        if m:
+            y, mo, d = m.group(1), int(m.group(2)), int(m.group(3))
+            return f"{y}{mo:02d}{d:02d}"
+    return datetime.now().strftime("%Y%m%d")
+
+
+def create_order(name, phone, birthday, shichen, wish_main, wish_sub, note,
+                 created_at=None, product="", quantity="", pickup_date="",
+                 delivery="") -> str:
+    """新增一筆訂單，回傳新訂單 id（Task1 D2 起為字串 YYYYMMDD-NN）。
+
+    Task1 連動：
+    - created_at（D3）：選填，帶入前台下單時間；未傳則 fallback datetime.now()。
+      其日期部分同時是 D2 取號的「當日」依據。
+    - product/quantity/pickup_date/delivery（D4）：擴欄 15-18，選填，預設空字串。
+    既有呼叫者不傳新參數時行為相容（仍寫 18 欄，新欄為空）。
+    """
     ws = _get_sheet("orders")
-    new_id = get_next_order_id()
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    if not created_at:
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    date_str = _date_str_from_created_at(created_at)
+    new_id = get_next_order_id_by_date(date_str)
     ws.append_row([
         new_id, created_at, name, phone, birthday,
         shichen, wish_main, wish_sub, note, "待處理",
-        "", "", "", ""
+        "", "", "", "",
+        product, quantity, pickup_date, delivery
     ], value_input_option="USER_ENTERED")
     return new_id
 
@@ -165,6 +222,165 @@ def update_order_fields(order_id, fields: dict):
                     ws.update_cell(i, col, value)
             return
     raise ValueError(f"Order {order_id} not found")
+
+
+# ── 前台訂單收件匣（Task1 Phase 2）─────────────────────────────────
+# 合併後 Sheet 內，前台 GAS 寫入的兩張原始收件 tab + 下午茶管理 tab。
+
+# 前台「八字蛋糕訂單」tab 原 10 欄 + 尾端「已轉入」欄（D5）= 11 欄
+BAZI_INBOX_HEADER = [
+    "時間", "name", "phone", "birthdate", "birth_hour",
+    "product", "quantity", "pickup_date", "delivery", "notes", "已轉入"
+]
+BAZI_INBOX_COLS = len(BAZI_INBOX_HEADER)  # 11
+_BAZI_CONVERTED_COL = BAZI_INBOX_COLS     # 1-based：第 11 欄
+
+# 前台「下午茶訂單」tab 原 8 欄 + 尾端「已轉入」欄（D5）= 9 欄
+TEA_INBOX_HEADER = [
+    "時間", "company", "contact", "phone",
+    "items", "event_date", "total_qty", "notes", "已轉入"
+]
+TEA_INBOX_COLS = len(TEA_INBOX_HEADER)    # 9
+_TEA_CONVERTED_COL = TEA_INBOX_COLS       # 1-based：第 9 欄
+
+# 下午茶管理 tab（Task1 D1）：前台 8 欄 + 狀態欄（D8 暫定「待處理」）
+TEA_MANAGE_TAB = "下午茶管理"
+TEA_MANAGE_HEADER = [
+    "時間", "company", "contact", "phone",
+    "items", "event_date", "total_qty", "notes", "狀態"
+]
+TEA_DEFAULT_STATUS = "待處理"  # D8 未拍板，Phase 2 固定單一值
+
+
+def _bazi_inbox_row_to_dict(idx: int, row: list) -> dict:
+    """八字蛋糕訂單列 → dict。idx 為 1-based 資料列序（不含標題列）。"""
+    def g(i): return row[i] if i < len(row) else ""
+    return {
+        "row":         idx,          # Sheet 中的資料列序（標記/查找用）
+        "created_at":  g(0),
+        "name":        g(1),
+        "phone":       g(2),
+        "birthdate":   g(3),
+        "birth_hour":  g(4),
+        "product":     g(5),
+        "quantity":    g(6),
+        "pickup_date": g(7),
+        "delivery":    g(8),
+        "notes":       g(9),
+        "converted":   g(_BAZI_CONVERTED_COL - 1),
+    }
+
+
+def _tea_inbox_row_to_dict(idx: int, row: list) -> dict:
+    """下午茶訂單列 → dict。idx 為 1-based 資料列序（不含標題列）。"""
+    def g(i): return row[i] if i < len(row) else ""
+    return {
+        "row":        idx,
+        "created_at": g(0),
+        "company":    g(1),
+        "contact":    g(2),
+        "phone":      g(3),
+        "items":      g(4),
+        "event_date": g(5),
+        "total_qty":  g(6),
+        "notes":      g(7),
+        "converted":  g(_TEA_CONVERTED_COL - 1),
+    }
+
+
+def load_inbox_bazi(only_unconverted: bool = True) -> list:
+    """讀八字蛋糕訂單 tab。only_unconverted=True 只回「已轉入」欄為空的列。"""
+    ws = _get_sheet_safe("八字蛋糕訂單")
+    if ws is None:
+        return []
+    rows = ws.get_all_values()
+    if len(rows) <= 1:
+        return []
+    out = []
+    for idx, r in enumerate(rows[1:], start=1):
+        if not r or not any(str(c).strip() for c in r):
+            continue
+        d = _bazi_inbox_row_to_dict(idx, r)
+        if only_unconverted and str(d["converted"]).strip():
+            continue
+        out.append(d)
+    return out
+
+
+def load_inbox_tea(only_unconverted: bool = True) -> list:
+    """讀下午茶訂單 tab。only_unconverted=True 只回「已轉入」欄為空的列。"""
+    ws = _get_sheet_safe("下午茶訂單")
+    if ws is None:
+        return []
+    rows = ws.get_all_values()
+    if len(rows) <= 1:
+        return []
+    out = []
+    for idx, r in enumerate(rows[1:], start=1):
+        if not r or not any(str(c).strip() for c in r):
+            continue
+        d = _tea_inbox_row_to_dict(idx, r)
+        if only_unconverted and str(d["converted"]).strip():
+            continue
+        out.append(d)
+    return out
+
+
+def get_inbox_bazi_row(row_idx: int) -> dict:
+    """取單一八字蛋糕訂單列（1-based 資料列序）；找不到回 None。"""
+    ws = _get_sheet_safe("八字蛋糕訂單")
+    if ws is None:
+        return None
+    rows = ws.get_all_values()
+    data_rows = rows[1:] if len(rows) > 1 else []
+    if not (1 <= row_idx <= len(data_rows)):
+        return None
+    return _bazi_inbox_row_to_dict(row_idx, data_rows[row_idx - 1])
+
+
+def get_inbox_tea_row(row_idx: int) -> dict:
+    """取單一下午茶訂單列（1-based 資料列序）；找不到回 None。"""
+    ws = _get_sheet_safe("下午茶訂單")
+    if ws is None:
+        return None
+    rows = ws.get_all_values()
+    data_rows = rows[1:] if len(rows) > 1 else []
+    if not (1 <= row_idx <= len(data_rows)):
+        return None
+    return _tea_inbox_row_to_dict(row_idx, data_rows[row_idx - 1])
+
+
+def mark_inbox_bazi_converted(row_idx: int, mark: str):
+    """標記八字蛋糕訂單該列「已轉入」欄（row_idx 為 1-based 資料列序）。
+    Sheet 實體列號 = row_idx + 1（跳過標題列）。必須在目標寫入成功後才呼叫。"""
+    ws = _get_sheet("八字蛋糕訂單")
+    ws.update_cell(row_idx + 1, _BAZI_CONVERTED_COL, mark)
+
+
+def mark_inbox_tea_converted(row_idx: int, mark: str):
+    """標記下午茶訂單該列「已轉入」欄（row_idx 為 1-based 資料列序）。"""
+    ws = _get_sheet("下午茶訂單")
+    ws.update_cell(row_idx + 1, _TEA_CONVERTED_COL, mark)
+
+
+def add_tea_manage_order(tea: dict, status: str = None) -> str:
+    """把一筆下午茶單寫入「下午茶管理」tab，狀態固定 TEA_DEFAULT_STATUS。
+    回傳寫入的狀態值。下午茶一律不得寫入 orders。"""
+    if status is None:
+        status = TEA_DEFAULT_STATUS
+    ws = _get_sheet(TEA_MANAGE_TAB)
+    ws.append_row([
+        tea.get("created_at", ""),
+        tea.get("company", ""),
+        tea.get("contact", ""),
+        tea.get("phone", ""),
+        tea.get("items", ""),
+        tea.get("event_date", ""),
+        tea.get("total_qty", ""),
+        tea.get("notes", ""),
+        status,
+    ], value_input_option="USER_ENTERED")
+    return status
 
 
 # ── Ingredients ───────────────────────────────────────────────────
@@ -261,7 +477,7 @@ def init_sheets():
     existing = [ws.title for ws in _sh.worksheets()]
 
     if "orders" not in existing:
-        ws = _sh.add_worksheet(title="orders", rows=1000, cols=14)
+        ws = _sh.add_worksheet(title="orders", rows=1000, cols=18)
         ws.append_row(ORDERS_HEADER)
 
     if "ingredients" not in existing:
