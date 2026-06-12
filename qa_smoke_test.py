@@ -1,5 +1,7 @@
 # qa_smoke_test.py - 萊點（Laiten）八字蛋糕系統 全系統迴歸冒煙基線
 #
+# 基線數：36 PASS + 1 SKIP（2026-06-13 Task1 Phase 1 同步後實跑全綠）
+#
 # 用途：任何程式修改完成後，必須先跑本測試確認沒有「改A壞B」。
 # 執行：python qa_smoke_test.py（需要 flask / gspread / anthropic / openpyxl）
 #
@@ -86,9 +88,12 @@ ingredient_web = imported["ingredient_web"]
 db._get_sheet = _make_blocker("db._get_sheet")
 db._get_sheet_safe = _make_blocker("db._get_sheet_safe")
 admin._gws = _make_blocker("admin._gws (gws CLI)")
+admin._gws_json = _make_blocker("admin._gws_json (gws CLI)")
 admin._gws_write = _make_blocker("admin._gws_write")
 admin._gws_clear = _make_blocker("admin._gws_clear")
-admin._gws_read = lambda range_: []        # 唯讀層改回空資料，讓 GET 路由可渲染
+# Phase 1 起 gws 層語意：空資料=合法（回空 list）、API 錯誤=拋 admin.GwsError。
+# mock 回空 list = 模擬「tab 存在但無資料」的合法狀態，GET 路由應照常 200。
+admin._gws_read = lambda range_: []
 admin.anthropic.Anthropic = _BlockedAnthropic
 ingredient_classifier.anthropic.Anthropic = _BlockedAnthropic
 # git push（laiten_sync 只在 POST 才會跑，這裡再加一層保險）
@@ -359,12 +364,15 @@ try:
     html = open(index_path, encoding="utf-8").read()
     assert "<html" in html.lower(), "index.html 缺少 <html> 標籤"
     assert "</html>" in html.lower(), "index.html 缺少 </html> 結尾（檔案可能被截斷）"
-    # 前台資料來源：目前 index.html 直接 fetch Google Sheets（fetchSheet），
-    # 不引用 products.js；兩者擇一存在即視為資料來源接線正常。
-    assert ("products.js" in html) or ("fetchSheet" in html), \
-        "index.html 既沒有引用 products.js 也沒有 fetchSheet（前台資料來源斷線）"
-    record("Smoke-6 index.html 基本檢查", "PASS",
-           "資料來源：" + ("products.js" if "products.js" in html else "直接 fetch Google Sheets"))
+    # 前台資料來源（Task1 Phase 1 收緊）：必須引用 products.js，
+    # 且不得殘留 fetchSheet / gviz 公開讀取（合併後 Sheet 為私有，個資保護）。
+    assert 'src="products.js"' in html, \
+        "index.html 必須以 <script src=\"products.js\"> 引用正式資料來源"
+    assert "fetchSheet" not in html, "index.html 殘留 fetchSheet（gviz 讀取應已移除）"
+    assert "/gviz/" not in html, "index.html 殘留 gviz URL（公開讀取應已移除）"
+    assert "docs.google.com/spreadsheets" not in html, \
+        "index.html 殘留 Google Sheets 直接讀取 URL"
+    record("Smoke-6 index.html 基本檢查", "PASS", "資料來源：products.js（無 gviz 殘留）")
 except AssertionError as e:
     record("Smoke-6 index.html 基本檢查", "FAIL", str(e))
 except Exception:
@@ -380,13 +388,21 @@ try:
     payload = text[len(prefix):].strip().rstrip(";")
     data = json.loads(payload)   # 可解析 = 語法層級沒壞
     assert isinstance(data.get("brand"), dict), "products.js 缺少 brand 物件"
+    # Phase 1 起 products.js 是前台正式資料來源：brand 必含前台必需 key
+    REQUIRED_BRAND_KEYS = {"tagline", "subtitle", "cta_text", "cta_url_bazi", "cta_url_tea"}
+    missing_keys = REQUIRED_BRAND_KEYS - set(data["brand"].keys())
+    assert not missing_keys, f"products.js brand 缺少前台必需 key：{sorted(missing_keys)}"
     assert isinstance(data.get("lines"), list) and data["lines"], \
         "products.js 缺少 lines 或為空"
+    line_ids = set()
     for line in data["lines"]:
         assert "id" in line and isinstance(line.get("products"), list), \
             f"產品線結構異常：{line.get('id', '?')}"
+        line_ids.add(line["id"])
+    assert {"bazi-cake", "afternoon-tea"} <= line_ids, \
+        f"products.js 缺少必要產品線：{line_ids}"
     record("Smoke-6 products.js 可解析", "PASS",
-           f"{len(data['lines'])} 條產品線")
+           f"{len(data['lines'])} 條產品線，brand key 完整")
 except AssertionError as e:
     record("Smoke-6 products.js 可解析", "FAIL", str(e))
 except json.JSONDecodeError as e:

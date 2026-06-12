@@ -318,85 +318,73 @@
   </div>
 </div>
 
+<script src="products.js"></script>
 <script>
-const SHEET_ID = '1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo';
 let GAS_URL_BAZI = '';
 let GAS_URL_TEA  = '';
 let currentTab   = 'bazi-cake';
 let teaProducts  = [];
 
-// ── 從 Google Sheets 讀資料 ──────────────────────────────────────
-
-function parseCSV(text) {
-  const rows = [];
-  const lines = text.trim().split('\n');
-  for (const line of lines) {
-    const cells = [];
-    let field = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { if (inQ && line[i+1] === '"') { field += '"'; i++; } else { inQ = !inQ; } }
-      else if (c === ',' && !inQ) { cells.push(field); field = ''; }
-      else { field += c; }
-    }
-    cells.push(field);
-    rows.push(cells);
-  }
-  return rows;
-}
-
-async function fetchSheet(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-  const r = await fetch(url);
-  const text = await r.text();
-  return parseCSV(text).slice(1); // 去掉 header row
-}
+// ── 資料來源：products.js（Task1 Phase 1 起為正式來源，由後台「同步發布」生成）──
+// 不再透過 gviz 即時讀取 Google Sheets（個資保護：合併後 Sheet 為私有）。
 
 // 存在性防護：元素不存在就跳過，避免單一元素被移除導致整個 loadData 崩潰
-// （Phase 1 重寫 loadData 時必須保留此防護模式，見 specs/Task1.impact.md 裁定二）
+// （Phase 0 建立的防護模式，Phase 1 重寫後保留，見 specs/Task1.impact.md 裁定二）
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
 }
 
-async function loadData() {
-  const [brandRows, prodRows] = await Promise.all([
-    fetchSheet('品牌設定'),
-    fetchSheet('產品主檔'),
-  ]);
+// products.js 載入失敗時的可見降級提示（不可整頁空白且無訊息）
+function showLoadError() {
+  const msg = '<p style="color:#c0392b;font-size:.9rem;line-height:1.8;">' +
+    '頁面資料載入失敗，請重新整理頁面。<br>' +
+    '若仍無法顯示，請來電 <a href="tel:0918235714" style="color:#c0392b;text-decoration:underline;">0918-235-714</a> 由專人為您服務。</p>';
+  ['bazi-products', 'tea-products', 'tea-items-list'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = msg;
+  });
+  console.error('products.js 未載入或資料結構異常，前台改以降級提示顯示');
+}
 
-  const brand = {};
-  for (const row of brandRows) { if (row[0]) brand[row[0]] = row[1] || ''; }
-
-  GAS_URL_BAZI = brand['cta_url_bazi'] || '';
-  GAS_URL_TEA  = brand['cta_url_tea']  || '';
-
-  setText('hero-tagline', brand['tagline']  || 'Laiten'); // 元素已於 9f1f676 移除，防護後自動跳過
-  setText('hero-desc',    brand['subtitle'] || '');       // 同上
-
-  const lines = { 'bazi-cake': [], 'afternoon-tea': [] };
-  for (const row of prodRows) {
-    const lineId = row[0];
-    if (!lines[lineId]) continue;
-    if (row[8] && row[8].toUpperCase() === 'FALSE') continue; // active = FALSE 跳過
-    lines[lineId].push({
-      id:          row[1]  || '',
-      name:        row[2]  || '',
-      badge:       row[3]  || '',
-      description: row[4]  || '',
-      price:       parseInt(row[5]) || 0,
-      discount:    parseInt(row[6]) || 0,
-      unit:        row[7]  || '',
-      images:      row[10] ? row[10].split(',').map(s=>s.trim()).filter(Boolean) : [],
-      category:    row[11] || '',
-    });
+function loadData() {
+  if (typeof PRODUCTS_DATA === 'undefined' || !PRODUCTS_DATA ||
+      !PRODUCTS_DATA.brand || !Array.isArray(PRODUCTS_DATA.lines)) {
+    showLoadError();
+    return;
   }
 
-  // 品牌名稱與 subtitle
-  setText('btn-bazi-cake',     brand['bazi-cake_name']          || '八字蛋糕');
-  setText('btn-afternoon-tea', brand['afternoon-tea_name']      || '精選下午茶');
-  setText('bazi-subtitle',     brand['bazi-cake_subtitle']      || '');
-  setText('tea-subtitle',      brand['afternoon-tea_subtitle']  || '');
+  const brand = PRODUCTS_DATA.brand;
+
+  GAS_URL_BAZI = brand.cta_url_bazi || '';
+  GAS_URL_TEA  = brand.cta_url_tea  || '';
+
+  setText('hero-tagline', brand.tagline  || 'Laiten'); // 元素已於 9f1f676 移除，防護後自動跳過
+  setText('hero-desc',    brand.subtitle || '');       // 同上
+
+  const lines = { 'bazi-cake': [], 'afternoon-tea': [] };
+  const lineNames = { 'bazi-cake': '八字蛋糕', 'afternoon-tea': '精選下午茶' };
+  const subtitleIds = { 'bazi-cake': 'bazi-subtitle', 'afternoon-tea': 'tea-subtitle' };
+
+  for (const line of PRODUCTS_DATA.lines) {
+    if (!lines[line.id]) continue;
+    setText('btn-' + line.id,     line.name     || lineNames[line.id]);
+    setText(subtitleIds[line.id], line.subtitle || '');
+    for (const p of (line.products || [])) {
+      if (p.active === false) continue; // active = FALSE 跳過（與原 gviz 行為一致）
+      lines[line.id].push({
+        id:          p.id          || '',
+        name:        p.name        || '',
+        badge:       p.badge       || '',
+        description: p.description || '',
+        price:       parseInt(p.price)    || 0,
+        discount:    parseInt(p.discount) || 0,
+        unit:        p.unit        || '',
+        images:      Array.isArray(p.images) ? p.images : [],
+        category:    p.category    || '',
+      });
+    }
+  }
 
   renderProducts('bazi-products',   lines['bazi-cake']);
   renderProducts('tea-products',    lines['afternoon-tea']);
@@ -586,7 +574,7 @@ async function sendToGAS(url, payload) {
 }
 
 // ── 初始化 ──────────────────────────────────────────────────────
-loadData().catch(console.error);
+try { loadData(); } catch (e) { console.error(e); showLoadError(); }
 </script>
 
 </body>

@@ -14,41 +14,71 @@ CAKE_ROOT    = Path(__file__).parent.parent
 LAITEN_DIR   = CAKE_ROOT / "laiten_public"
 IMAGES_DIR   = LAITEN_DIR / "images"
 IMG_EXTS     = {".jpg", ".jpeg", ".png", ".webp"}
-SHEET_ID     = "1oYJ7qO4E40aw1RVip-O3NM6X_U-mYxGT1NIn_YvpW2E"
 
-os.environ["GOOGLE_SHEETS_ID"] = SHEET_ID
+# ── Sheet ID 常數（Task1 Phase 1 根因修復：單一 SHEET_ID 拆成兩個用途常數）──
+# 2026-06-13 Sheet 合併後，兩用途指向同一份後台 Sheet「八字蛋糕資料庫」；
+# 拆成兩個明名常數，未來若再分家只需各改一處（specs/Task1.impact.md Backend 注意 1）。
+LAITEN_SHEET_ID = "1oYJ7qO4E40aw1RVip-O3NM6X_U-mYxGT1NIn_YvpW2E"  # gws laiten（品牌設定/產品主檔）
+BACK_SHEET_ID   = "1oYJ7qO4E40aw1RVip-O3NM6X_U-mYxGT1NIn_YvpW2E"  # db.py 的 orders/ingredients
+
+# db.py 的生命線：必須在 import db 之前設定
+os.environ["GOOGLE_SHEETS_ID"] = BACK_SHEET_ID
 
 import db
 GWS_CMD      = r"C:\Users\chin3\AppData\Roaming\npm\gws.cmd"
 
 # ── Google Sheets 存取層 ──────────────────────────────────────────────
+# 錯誤語意（Task1 Phase 1）：
+#   空資料 = 合法（tab 存在但範圍無值 → 回空 list）
+#   API / CLI 錯誤 = 拋 GwsError（不再靜默吞掉造成「存檔顯示 ok 但沒寫入」假成功）
+# gws 實測（2026-06-13）：錯誤時 stdout 印 {"error": {...}} JSON 且 exit code 非 0。
 
-def _gws(*args) -> str:
-    r = subprocess.run(
+
+class GwsError(RuntimeError):
+    """gws CLI / Sheets API 錯誤（讀寫失敗必須讓使用者看見）"""
+
+
+def _gws(*args) -> subprocess.CompletedProcess:
+    return subprocess.run(
         ["cmd", "/c", GWS_CMD] + list(args),
         capture_output=True, text=True, encoding="utf-8"
     )
-    return r.stdout
+
+def _gws_json(*args) -> dict:
+    """執行 gws 並解析 JSON 回應；任何錯誤一律拋 GwsError"""
+    r = _gws(*args)
+    stdout = (r.stdout or "").strip()
+    combined = stdout + (("\n" + r.stderr.strip()) if r.stderr else "")
+    payload = None
+    idx = stdout.find('{')
+    if idx != -1:
+        try:
+            payload = json.loads(stdout[idx:])
+        except json.JSONDecodeError:
+            payload = None
+    if isinstance(payload, dict) and "error" in payload:
+        err = payload["error"]
+        raise GwsError(f"Sheets API 錯誤 {err.get('code', '?')}：{err.get('message', '')}")
+    if r.returncode != 0:
+        raise GwsError(f"gws 指令失敗（exit {r.returncode}）：{combined[:400]}")
+    if payload is None:
+        raise GwsError(f"gws 回應無法解析：{combined[:400]}")
+    return payload
 
 def _gws_read(range_: str) -> list:
-    stdout = _gws("sheets", "spreadsheets", "values", "get",
-                  "--params", json.dumps({"spreadsheetId": SHEET_ID, "range": range_})).strip()
-    idx = stdout.find('{')
-    if idx == -1:
-        return []
-    try:
-        return json.loads(stdout[idx:]).get("values", [])
-    except json.JSONDecodeError:
-        return []
+    payload = _gws_json("sheets", "spreadsheets", "values", "get",
+                        "--params", json.dumps({"spreadsheetId": LAITEN_SHEET_ID, "range": range_}))
+    return payload.get("values", [])
 
 def _gws_write(range_: str, values: list):
-    _gws("sheets", "spreadsheets", "values", "update",
-         "--params", json.dumps({"spreadsheetId": SHEET_ID, "range": range_, "valueInputOption": "RAW"}),
-         "--json", json.dumps({"values": values}))
+    _gws_json("sheets", "spreadsheets", "values", "update",
+              "--params", json.dumps({"spreadsheetId": LAITEN_SHEET_ID, "range": range_,
+                                      "valueInputOption": "RAW"}),
+              "--json", json.dumps({"values": values}))
 
 def _gws_clear(range_: str):
-    _gws("sheets", "spreadsheets", "values", "clear",
-         "--params", json.dumps({"spreadsheetId": SHEET_ID, "range": range_}))
+    _gws_json("sheets", "spreadsheets", "values", "clear",
+              "--params", json.dumps({"spreadsheetId": LAITEN_SHEET_ID, "range": range_}))
 
 app = Flask(__name__, template_folder=str(CAKE_ROOT / "templates"))
 
@@ -414,13 +444,14 @@ def admin_print():
 
 # ── Laiten 輔助 ───────────────────────────────────────────────────
 
-def _load_laiten() -> dict:
-    # 讀品牌設定
-    brand_rows = _gws_read("品牌設定!A2:B20")
+def _parse_laiten(brand_rows: list, prod_rows: list) -> dict:
+    """把 品牌設定 / 產品主檔 的列資料解析成前後台共用的資料結構。
+
+    純函式（不碰 Sheets），同時是 products.js 的資料結構唯一來源：
+    /admin/laiten/sync 與 migrate_sheets.gen_products() 都經由此函式生成。
+    """
     brand = {row[0]: row[1] for row in brand_rows if len(row) >= 2}
 
-    # 讀產品主檔
-    prod_rows = _gws_read("產品主檔!A2:L500")
     lines_map = {}
     for row in prod_rows:
         if not row or len(row) < 3:
@@ -461,6 +492,22 @@ def _load_laiten() -> dict:
         },
         "lines": lines,
     }
+
+
+def _load_laiten() -> dict:
+    """讀合併後 Sheet 的 品牌設定 + 產品主檔；gws 錯誤會拋 GwsError"""
+    return _parse_laiten(
+        _gws_read("品牌設定!A2:B20"),
+        _gws_read("產品主檔!A2:L500"),
+    )
+
+
+def _load_laiten_safe():
+    """回傳 (data, err)。讀取失敗時 data 為預設結構（頁面仍可渲染）、err 為錯誤訊息。"""
+    try:
+        return _load_laiten(), None
+    except GwsError as e:
+        return _parse_laiten([], []), str(e)
 
 
 def _save_laiten(data: dict):
@@ -520,28 +567,36 @@ def laiten_index():
 
 @app.route("/admin/laiten/brand", methods=["GET", "POST"])
 def laiten_brand():
-    data = _load_laiten()
+    data, err = _load_laiten_safe()
     msg = None
     if request.method == "POST":
-        b = data["brand"]
-        b["tagline"]      = request.form.get("tagline", "").strip()
-        b["subtitle"]     = request.form.get("subtitle", "").strip()
-        b["cta_url_bazi"] = request.form.get("cta_url_bazi", "").strip()
-        b["cta_url_tea"]  = request.form.get("cta_url_tea", "").strip()
-        b["cta_text"]     = request.form.get("cta_text", "").strip()
-        _save_laiten(data)
-        msg = "ok"
-    return render_template("admin/laiten_brand.html", brand=data["brand"], msg=msg)
+        if err:
+            err = f"讀取現有設定失敗，未執行儲存（避免用預設值覆寫 Sheet）：{err}"
+        else:
+            b = data["brand"]
+            b["tagline"]      = request.form.get("tagline", "").strip()
+            b["subtitle"]     = request.form.get("subtitle", "").strip()
+            b["cta_url_bazi"] = request.form.get("cta_url_bazi", "").strip()
+            b["cta_url_tea"]  = request.form.get("cta_url_tea", "").strip()
+            b["cta_text"]     = request.form.get("cta_text", "").strip()
+            try:
+                _save_laiten(data)
+                msg = "ok"
+            except GwsError as e:
+                err = f"儲存失敗（資料可能未寫入或寫入不完整，請重試）：{e}"
+    return render_template("admin/laiten_brand.html", brand=data["brand"], msg=msg, err=err)
 
 
 @app.route("/admin/laiten/products/<line_id>", methods=["GET", "POST"])
 def laiten_products(line_id):
-    data  = _load_laiten()
+    data, err = _load_laiten_safe()
     line  = next((l for l in data["lines"] if l["id"] == line_id), None)
     if not line:
         return "產品線不存在", 404
     msg = None
-    if request.method == "POST":
+    if request.method == "POST" and err:
+        err = f"讀取現有資料失敗，未執行儲存（避免用空資料覆寫 Sheet）：{err}"
+    elif request.method == "POST":
         action = request.form.get("action")
         if action == "update":
             line["name"]     = request.form.get("line_name", line["name"])
@@ -571,11 +626,15 @@ def laiten_products(line_id):
             if 0 <= idx < len(line["products"]):
                 line["products"].pop(idx)
             msg = "deleted"
-        _save_laiten(data)
+        try:
+            _save_laiten(data)
+        except GwsError as e:
+            msg = None
+            err = f"儲存失敗（資料可能未寫入或寫入不完整，請重試）：{e}"
     images = _list_images()
     return render_template(
         "admin/laiten_products.html",
-        line=line, images=images, msg=msg, all_lines=data["lines"]
+        line=line, images=images, msg=msg, all_lines=data["lines"], err=err
     )
 
 
@@ -616,7 +675,14 @@ def laiten_sync():
         repo_root = CAKE_ROOT
         try:
             # 從 Google Sheets 生成最新的 products.js
+            # Phase 1 起 products.js 是前台正式資料來源——讀不到資料時必須中止，
+            # 不可推一份空的 products.js 上線（會讓前台全空）。
             latest = _load_laiten()
+            if not any(line["products"] for line in latest["lines"]):
+                result = ("err", "產品主檔讀回為空，已中止推送（不可推空的 products.js 上線）。"
+                                 "請先確認合併後 Sheet 的「產品主檔」有資料。")
+                data, _ = _load_laiten_safe()
+                return render_template("admin/laiten_sync.html", result=result, data=data)
             products_js = (LAITEN_DIR / "products.js")
             products_js.write_text(
                 "const PRODUCTS_DATA = " + json.dumps(latest, ensure_ascii=False, indent=2) + ";\n",
@@ -631,10 +697,14 @@ def laiten_sync():
                 subprocess.run(["git", "commit", "-m", commit_msg], cwd=repo_root, check=True, capture_output=True)
                 subprocess.run(["git", "push"], cwd=repo_root, check=True, capture_output=True)
                 result = ("ok", "推送完成！Netlify 會在 1-2 分鐘內自動更新。")
+        except GwsError as e:
+            result = ("err", f"讀取 Sheet 失敗，已中止（未生成、未推送）：{e}")
         except subprocess.CalledProcessError as e:
             err = e.stderr.decode(errors="replace") if e.stderr else str(e)
             result = ("err", f"操作失敗：{err}")
-    data = _load_laiten()
+    data, load_err = _load_laiten_safe()
+    if load_err and result is None:
+        result = ("err", f"讀取 Sheet 失敗：{load_err}")
     return render_template("admin/laiten_sync.html", result=result, data=data)
 
 

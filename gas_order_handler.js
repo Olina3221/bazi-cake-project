@@ -12,7 +12,9 @@
  * 6. 每次修改程式碼後，要點「新增部署（版本）」才會生效，舊 URL 不用換
  */
 
-const SHEET_ID     = '1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo';
+// 2026-06-13 Task1 Phase 1：Sheet 合併後改指後台 Sheet「八字蛋糕資料庫」。
+// 此檔僅為 repo 副本——實際生效需在 script.google.com 編輯器同步修改並「新增部署（版本）」（M3，Olina 手動）。
+const SHEET_ID     = '1oYJ7qO4E40aw1RVip-O3NM6X_U-mYxGT1NIn_YvpW2E';
 const NOTIFY_EMAIL = 'yuchin@ulinjia.net';
 
 function doPost(e) {

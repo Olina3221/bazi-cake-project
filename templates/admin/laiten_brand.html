@@ -32,6 +32,7 @@
     .btn:hover{opacity:.85;}
     .btn-primary{background:var(--caramel);color:#fff;}
     .alert-ok{background:#e8f4e8;color:#3a7a3a;padding:12px 18px;border-radius:8px;font-size:.85rem;margin-bottom:20px;}
+    .alert-err{background:#fbeaea;color:#a33a3a;padding:12px 18px;border-radius:8px;font-size:.85rem;margin-bottom:20px;word-break:break-all;}
   </style>
 </head>
 <body>
@@ -63,6 +64,9 @@
 
   {% if msg == 'ok' %}
   <div class="alert-ok">✅ 已儲存，銷售頁即時更新。</div>
+  {% endif %}
+  {% if err %}
+  <div class="alert-err">❌ {{ err }}</div>
   {% endif %}
 
   <form method="POST">
