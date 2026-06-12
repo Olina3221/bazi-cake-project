@@ -7,3 +7,13 @@ bazi_cake.xlsx
 .DS_Store
 API_Key.txt
 bazi-cake-7f05b93403ea.json
+venv/
+.venv/
+
+# pipeline 信號檔（暫時性，不進版控；.impact.md 為分析報告，保留追蹤）
+specs/*.ready
+specs/*.sa_done
+specs/*.backend_done
+specs/*.done
+specs/*.tested
+specs/*.qa_failed.md
