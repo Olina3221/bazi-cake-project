@@ -83,6 +83,13 @@
     }
     .form-success .check { font-size: 3rem; margin-bottom: 12px; }
     .form-success p { color: var(--mid); font-size: .9rem; line-height: 1.8; }
+    /* 送單失敗提示（與 products.js 載入失敗降級訊息同風格） */
+    .form-error {
+      background: var(--warm-beige); border-left: 3px solid #c0392b;
+      padding: 14px 16px; font-size: .85rem; line-height: 1.8;
+      color: #c0392b; margin-bottom: 20px;
+    }
+    .form-error a { color: #c0392b; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -197,6 +204,11 @@
         如需宅配，僅提供<strong>黑貓冷凍宅配</strong>，運送過程造成的損壞恕不負責。
       </div>
 
+      <div id="bazi-error" class="form-error hidden">
+        送出失敗，請來電 <a href="tel:0918235714">0918-235-714</a> 由專人為您處理訂單。<br>
+        您填寫的資料仍保留，可稍後再試一次。
+      </div>
+
       <form id="form-bazi" onsubmit="submitBazi(event)">
         <div class="form-row">
           <div>
@@ -273,6 +285,11 @@
       <div class="form-notice">
         ⚠️ <strong>最低訂購量：30 份</strong><br>
         適合公司聚餐、會議茶點、員工活動，歡迎洽詢客製內容。
+      </div>
+
+      <div id="tea-error" class="form-error hidden">
+        送出失敗，請來電 <a href="tel:0918235714">0918-235-714</a> 由專人為您處理訂單。<br>
+        您填寫的資料仍保留，可稍後再試一次。
       </div>
 
       <form id="form-tea" onsubmit="submitTea(event)">
@@ -533,13 +550,22 @@ function collectTeaItems() {
 async function submitBazi(e) {
   e.preventDefault();
   const btn = document.getElementById('bazi-submit-btn');
+  const errBox = document.getElementById('bazi-error');
+  errBox.classList.add('hidden');           // 重試前先收起舊的失敗訊息
   btn.disabled = true; btn.textContent = '送出中…';
 
   const fd = new FormData(e.target);
   const payload = Object.fromEntries(fd);
   payload.type = 'bazi';
 
-  await sendToGAS(GAS_URL_BAZI, payload);
+  const ok = await sendToGAS(GAS_URL_BAZI, payload);
+  if (!ok) {
+    // 失敗：顯示備援電話、保留表單資料、還原按鈕讓客人重試，不進成功畫面
+    errBox.classList.remove('hidden');
+    btn.disabled = false; btn.textContent = '送出預約';
+    errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
   document.getElementById('bazi-form-wrap').classList.add('hidden');
   document.getElementById('bazi-success').classList.remove('hidden');
 }
@@ -551,6 +577,8 @@ async function submitTea(e) {
   if (total < 30) { alert('最低訂購量為 30 份，目前合計 ' + total + ' 份，請增加數量。'); return; }
 
   const btn = document.getElementById('tea-submit-btn');
+  const errBox = document.getElementById('tea-error');
+  errBox.classList.add('hidden');           // 重試前先收起舊的失敗訊息
   btn.disabled = true; btn.textContent = '送出中…';
 
   const fd = new FormData(e.target);
@@ -559,18 +587,29 @@ async function submitTea(e) {
   payload.items     = items.join('、');
   payload.total_qty = String(total);
 
-  await sendToGAS(GAS_URL_TEA, payload);
+  const ok = await sendToGAS(GAS_URL_TEA, payload);
+  if (!ok) {
+    // 失敗：顯示備援電話、保留表單資料、還原按鈕讓客人重試，不進成功畫面
+    errBox.classList.remove('hidden');
+    btn.disabled = false; btn.textContent = '送出洽詢';
+    errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
   document.getElementById('tea-form-wrap').classList.add('hidden');
   document.getElementById('tea-success').classList.remove('hidden');
 }
 
+// 回傳 true=送出成功（fetch resolve）、false=可偵測的失敗（URL 為空 / 網路層 reject）。
+// 注意 no-cors 模式拿不到回應內容，fetch resolve 不代表 GAS 內部寫入成功——
+// 那層由 GAS 通知信當保險絲（spec 已接受），這裡只擋能擋的兩種失敗。
 async function sendToGAS(url, payload) {
-  if (!url) { console.warn('GAS URL 未設定，資料：', payload); return; }
+  if (!url) { console.error('GAS URL 未設定，無法送單。資料：', payload); return false; }
   const body = new URLSearchParams(payload).toString();
   try {
     await fetch(url, { method: 'POST', body, mode: 'no-cors',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-  } catch(err) { console.error('送出失敗', err); }
+    return true;
+  } catch(err) { console.error('送出失敗（網路層）', err); return false; }
 }
 
 // ── 初始化 ──────────────────────────────────────────────────────

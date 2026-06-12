@@ -1,9 +1,12 @@
 # qa_smoke_test.py - 萊點（Laiten）八字蛋糕系統 全系統迴歸冒煙基線
 #
-# 基線數：42 PASS + 1 SKIP（2026-06-13 Task1 Phase 2 同步後實跑全綠）
+# 基線數：34 PASS + 0 SKIP（2026-06-13 Task1 Phase 4 死碼清理後實跑全綠；
+#         刪除前為 42 PASS + 1 SKIP，移除四件套相關 8 測試項 + 1 SKIP）。
 #   Phase 2 新增 6 項：新舊 id 並存 order detail、GET /admin/inbox、
 #   inbox convert（心願必填擋下 / 八字轉單成功 / 下午茶轉單成功）、D6 品牌頁空 cta_url 擋下。
-#   （Phase 4 死碼刪除尚未執行，本基線仍 import app/ingredient_classifier/ingredient_web）
+#   Phase 4 死碼刪除已執行：移除對 back/app.py、ingredient_web.py、ingredient_classifier.py、
+#   setup_excel.py 的所有 import 與測試（Smoke-1 三模組、Smoke-2 兩路由表、Smoke-4 整段、
+#   Smoke-5 app.py 模板段）。核心保留模組僅 db / admin。
 #
 # 用途：任何程式修改完成後，必須先跑本測試確認沒有「改A壞B」。
 # 執行：python qa_smoke_test.py（需要 flask / gspread / anthropic / openpyxl）
@@ -27,7 +30,7 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 BACK_DIR = os.path.join(PROJECT_ROOT, "back")
 sys.path.insert(0, BACK_DIR)
 sys.path.insert(0, PROJECT_ROOT)
-os.chdir(PROJECT_ROOT)  # ingredient_web 的 EXCEL_PATH 是相對路徑
+os.chdir(PROJECT_ROOT)  # 部分路徑依賴以專案根為工作目錄
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -65,7 +68,8 @@ print("\n=== Smoke 1: 核心模組 import ===")
 
 import importlib
 
-MODULES = ["db", "admin", "app", "ingredient_classifier", "ingredient_web"]
+# Task1 Phase 4：四件套死碼已刪除，核心模組僅剩 db / admin。
+MODULES = ["db", "admin"]
 imported = {}
 import_ok = True
 for mod_name in MODULES:
@@ -82,9 +86,6 @@ if not import_ok:
 
 db = imported["db"]
 admin = imported["admin"]
-front_app_mod = imported["app"]           # back/app.py（舊版前台表單）
-ingredient_classifier = imported["ingredient_classifier"]
-ingredient_web = imported["ingredient_web"]
 
 # ─── 裝上攔截器（import 完成後、發任何請求前）────────────────────────────────
 
@@ -98,7 +99,6 @@ admin._gws_clear = _make_blocker("admin._gws_clear")
 # mock 回空 list = 模擬「tab 存在但無資料」的合法狀態，GET 路由應照常 200。
 admin._gws_read = lambda range_: []
 admin.anthropic.Anthropic = _BlockedAnthropic
-ingredient_classifier.anthropic.Anthropic = _BlockedAnthropic
 # git push（laiten_sync 只在 POST 才會跑，這裡再加一層保險）
 admin.subprocess.run = _make_blocker("admin.subprocess.run (git)")
 
@@ -187,25 +187,7 @@ except AssertionError as e:
 except Exception:
     record("Smoke-2 admin app 路由表", "FAIL", traceback.format_exc(limit=3))
 
-try:
-    front_rules = {r.rule for r in front_app_mod.app.url_map.iter_rules()}
-    for rule in ("/", "/submit", "/success"):
-        assert rule in front_rules, f"app.py 路由表缺少 {rule}"
-    record("Smoke-2 app.py（舊版前台）路由表", "PASS")
-except AssertionError as e:
-    record("Smoke-2 app.py（舊版前台）路由表", "FAIL", str(e))
-except Exception:
-    record("Smoke-2 app.py（舊版前台）路由表", "FAIL", traceback.format_exc(limit=3))
-
-try:
-    web_rules = {r.rule for r in ingredient_web.app.url_map.iter_rules()}
-    for rule in ("/", "/classify", "/save", "/ingredients"):
-        assert rule in web_rules, f"ingredient_web 路由表缺少 {rule}"
-    record("Smoke-2 ingredient_web 路由表", "PASS")
-except AssertionError as e:
-    record("Smoke-2 ingredient_web 路由表", "FAIL", str(e))
-except Exception:
-    record("Smoke-2 ingredient_web 路由表", "FAIL", traceback.format_exc(limit=3))
+# Task1 Phase 4：app.py / ingredient_web 路由表測試已隨死碼刪除移除。
 
 # ─── Smoke 3：後台關鍵路由冒煙（test_client，外部呼叫全 mock）────────────────
 
@@ -364,55 +346,12 @@ except Exception:
     record("Smoke-3 POST /admin/laiten/brand（D6 空 cta_url 擋下）", "FAIL",
            traceback.format_exc(limit=3))
 
-# ─── Smoke 4：ingredient_web 路由冒煙（唯讀，不打 API）──────────────────────
-
-print("\n=== Smoke 4: ingredient_web 路由 ===")
-
-web_client = ingredient_web.app.test_client()
-
-try:
-    resp = web_client.get("/")
-    assert resp.status_code == 200, f"狀態碼 {resp.status_code}"
-    record("Smoke-4 GET /（食材判斷頁）", "PASS")
-except AssertionError as e:
-    record("Smoke-4 GET /（食材判斷頁）", "FAIL", str(e))
-except Exception:
-    record("Smoke-4 GET /（食材判斷頁）", "FAIL", traceback.format_exc(limit=3))
-
-try:
-    if os.path.exists(os.path.join(PROJECT_ROOT, ingredient_web.EXCEL_PATH)):
-        resp = web_client.get("/ingredients")
-        assert resp.status_code == 200, f"狀態碼 {resp.status_code}"
-        body = resp.get_json()
-        assert isinstance(body, list), f"/ingredients 應回 list，實際 {type(body)}"
-        record("Smoke-4 GET /ingredients（唯讀 xlsx）", "PASS", f"{len(body)} 筆")
-    else:
-        record("Smoke-4 GET /ingredients（唯讀 xlsx）", "SKIP",
-               f"{ingredient_web.EXCEL_PATH} 不存在")
-except AssertionError as e:
-    record("Smoke-4 GET /ingredients（唯讀 xlsx）", "FAIL", str(e))
-except Exception:
-    record("Smoke-4 GET /ingredients（唯讀 xlsx）", "FAIL",
-           traceback.format_exc(limit=3))
-
-try:
-    resp = web_client.post("/classify", json={"name": ""})
-    body = resp.get_json()
-    assert resp.status_code == 200 and isinstance(body, dict) and "error" in body, \
-        f"空輸入應回 error JSON，實際 {resp.status_code} {body!r}"
-    record("Smoke-4 POST /classify（空輸入驗證）", "PASS")
-except AssertionError as e:
-    record("Smoke-4 POST /classify（空輸入驗證）", "FAIL", str(e))
-except Exception:
-    record("Smoke-4 POST /classify（空輸入驗證）", "FAIL",
-           traceback.format_exc(limit=3))
+# Task1 Phase 4：Smoke 4（ingredient_web 路由冒煙）已隨 ingredient_web.py 死碼刪除整段移除。
+# 食材判斷功能現由 admin.py /admin/api/classify 等路由提供（已涵蓋於 Smoke 3）。
 
 # ─── Smoke 5：templates 完整性 ───────────────────────────────────────────────
 
 print("\n=== Smoke 5: templates 完整性 ===")
-
-# 已知舊版缺漏（back/app.py 是被 Netlify 靜態前台取代的舊版表單，模板從未存在）
-KNOWN_LEGACY_MISSING = {"order_form.html", "success.html"}
 
 _render_re = re.compile(r"""render_template\(\s*["']([^"']+)["']""")
 
@@ -435,23 +374,8 @@ except AssertionError as e:
 except Exception:
     record("Smoke-5 admin.py 模板完整性", "FAIL", traceback.format_exc(limit=3))
 
-try:
-    # app.py：Flask(__name__) 預設 template_folder = back/templates
-    app_tpl_dir = os.path.join(BACK_DIR, "templates")
-    refs = set(_referenced_templates(os.path.join(BACK_DIR, "app.py")))
-    missing = [t for t in refs if not os.path.exists(os.path.join(app_tpl_dir, t))]
-    unexpected = [t for t in missing if t not in KNOWN_LEGACY_MISSING]
-    if unexpected:
-        record("Smoke-5 app.py 模板完整性", "FAIL",
-               f"引用但不存在的模板：{unexpected}")
-    elif missing:
-        record("Smoke-5 app.py 模板完整性", "SKIP",
-               f"已知舊版缺漏 {sorted(missing)}（前台已改 laiten_public 靜態頁，"
-               f"app.py 的 / 與 /success 實際無法渲染，已回報）")
-    else:
-        record("Smoke-5 app.py 模板完整性", "PASS")
-except Exception:
-    record("Smoke-5 app.py 模板完整性", "FAIL", traceback.format_exc(limit=3))
+# Task1 Phase 4：app.py 模板完整性測試已隨 back/app.py 死碼刪除移除
+#（其引用的 order_form.html / success.html 為舊版前台殘留，前台已改 laiten_public 靜態頁）。
 
 # ─── Smoke 6：前台 laiten_public 靜態檔 ──────────────────────────────────────
 
