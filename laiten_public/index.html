@@ -352,6 +352,13 @@ async function fetchSheet(sheetName) {
   return parseCSV(text).slice(1); // 去掉 header row
 }
 
+// 存在性防護：元素不存在就跳過，避免單一元素被移除導致整個 loadData 崩潰
+// （Phase 1 重寫 loadData 時必須保留此防護模式，見 specs/Task1.impact.md 裁定二）
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
 async function loadData() {
   const [brandRows, prodRows] = await Promise.all([
     fetchSheet('品牌設定'),
@@ -364,8 +371,8 @@ async function loadData() {
   GAS_URL_BAZI = brand['cta_url_bazi'] || '';
   GAS_URL_TEA  = brand['cta_url_tea']  || '';
 
-  document.getElementById('hero-tagline').textContent = brand['tagline']  || 'Laiten';
-  document.getElementById('hero-desc').textContent    = brand['subtitle'] || '';
+  setText('hero-tagline', brand['tagline']  || 'Laiten'); // 元素已於 9f1f676 移除，防護後自動跳過
+  setText('hero-desc',    brand['subtitle'] || '');       // 同上
 
   const lines = { 'bazi-cake': [], 'afternoon-tea': [] };
   for (const row of prodRows) {
@@ -386,10 +393,10 @@ async function loadData() {
   }
 
   // 品牌名稱與 subtitle
-  document.getElementById('btn-bazi-cake').textContent   = brand['bazi-cake_name']      || '八字蛋糕';
-  document.getElementById('btn-afternoon-tea').textContent = brand['afternoon-tea_name'] || '精選下午茶';
-  document.getElementById('bazi-subtitle').textContent   = brand['bazi-cake_subtitle']     || '';
-  document.getElementById('tea-subtitle').textContent    = brand['afternoon-tea_subtitle']  || '';
+  setText('btn-bazi-cake',     brand['bazi-cake_name']          || '八字蛋糕');
+  setText('btn-afternoon-tea', brand['afternoon-tea_name']      || '精選下午茶');
+  setText('bazi-subtitle',     brand['bazi-cake_subtitle']      || '');
+  setText('tea-subtitle',      brand['afternoon-tea_subtitle']  || '');
 
   renderProducts('bazi-products',   lines['bazi-cake']);
   renderProducts('tea-products',    lines['afternoon-tea']);

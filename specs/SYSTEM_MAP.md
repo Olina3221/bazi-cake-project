@@ -6,16 +6,17 @@
 
 ## 兩份 Google Sheets（資料層全貌）
 
-| Sheet | ID | 工作表（tab） | 誰在讀寫 |
+| Sheet | ID | 實際存在的工作表（2026-06-13 gws 唯讀實查） | 誰在讀寫 |
 |-------|----|--------------|---------|
-| 後台 Sheet | `1oYJ7qO4E40aw1RVip-O3NM6X_U-mYxGT1NIn_YvpW2E` | `orders`、`ingredients`（db.py via gspread）＋ `品牌設定`、`產品主檔`（admin.py via gws CLI） | back/admin.py |
-| 前台 Sheet | `1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo` | `品牌設定`、`產品主檔`（前台 gviz 讀）＋ `八字蛋糕訂單`、`下午茶訂單`（GAS 寫） | laiten_public/index.html（讀）、gas_order_handler.js（寫） |
+| 後台 Sheet「八字蛋糕資料庫」 | `1oYJ7qO4E40aw1RVip-O3NM6X_U-mYxGT1NIn_YvpW2E` | `orders`、`ingredients`（db.py via gspread）、`monthly`（無程式引用） | back/admin.py（經 db.py） |
+| 前台 Sheet「Laiten 系統主檔」 | `1xtuKyod3lOQUmp_D10AhDDGSD4bVxG3TmZudO2S9AMo` | `品牌設定`、`產品主檔`（前台 gviz 讀）、`八字蛋糕訂單`、`下午茶訂單`（GAS 寫） | laiten_public/index.html（讀）、gas_order_handler.js（寫） |
 
-> ⚠️ 結構性風險：`品牌設定` / `產品主檔` 兩張 tab 在「後台 Sheet」與「前台 Sheet」各存在一份。
-> 後台 `/admin/laiten/brand`、`/admin/laiten/products` 編輯的是**後台 Sheet（1oYJ7…）**那份；
-> 前台 index.html 即時讀的是**前台 Sheet（1xtuK…）**那份。
-> 兩份之間靜態分析看不到任何同步機制（`/admin/laiten/sync` 只產 products.js + git push，而 index.html 並未引用 products.js）。
-> 後台改了品牌/產品，前台是否真的會變？——**待 Olina 確認**。
+> ⚠️ 已實查確認（2026-06-13）：**後台 Sheet 並沒有 `品牌設定` / `產品主檔` 兩張 tab**（兩張 tab 只存在於前台 Sheet）。
+> 但 admin.py 的 laiten 功能（brand / products / sync）用同一個 `SHEET_ID = 1oYJ7…` 走 gws 讀寫這兩張 tab
+> → API 回 400「Unable to parse range」，被 `_gws_read`（回空 list）與 `_gws_write/_gws_clear`（不檢查錯誤）整個吞掉。
+> 結果：後台品牌/產品頁**讀到的是程式預設值、存檔顯示 ok 但實際什麼都沒寫入**——自 2026-06-06 14:41 commit e5d27b9
+> 把 SHEET_ID 從前台 Sheet 改成後台 Sheet 起就壞了（改的目的是讓 db.py 的 orders/ingredients 讀對 Sheet，
+> 但 SHEET_ID 一個常數同時餵 gws laiten 功能與 GOOGLE_SHEETS_ID 環境變數，兩個用途需要的是不同 Sheet）。
 
 ### 工作表欄位結構
 
@@ -163,6 +164,23 @@ gas_order_handler.js（部署在 Google Apps Script，不在本 repo 執行）
 - 產品主檔 12 欄順序三處同步：admin.py `_load_laiten`（讀，含 row[8] active、row[10] images）、`_save_laiten`（寫）、index.html `loadData`（gviz 讀，同樣的 index）。
 - AI 回傳 JSON schema 是隱性契約：`/admin/api/analyze` 萃取的 `base_color_wuxing/layer1_wuxing/layer2_wuxing/topping_wuxing/avoid_wuxing` 被 detail.html 的食材勾選 UI 使用；改 prompt 要連 detail.html 一起迴歸。
 - detail.html 的 FOOD_DATA（admin.py 寫死）與 ingredients 工作表互不同步——未來若要「訂單詳情選項吃食材庫」需專案處理。
+
+### 2026-06-13 調查結論（gws 唯讀實查 + git 考古，已驗證）
+- **後台 Sheet 無 品牌設定/產品主檔 tab**：admin laiten 三頁（brand/products/sync 的讀取段）自 6/6 14:41（e5d27b9）起讀寫不存在的 tab，錯誤被吞、看似正常。根因：admin.py 單一 `SHEET_ID` 常數同時服務「gws laiten tab」與「db.py 的 GOOGLE_SHEETS_ID」兩個用途，但兩者需要不同 Sheet。修法：拆成兩個常數（`LAITEN_SHEET_ID = 1xtuK…`、`GOOGLE_SHEETS_ID = 1oYJ7…`），或合併 Sheet 後統一。
+- **前台 index.html 自 6/6 20:46 推版後整站下單功能中斷（P0）**：commit 9f1f676 把 HERO 改成 banner 圖、移除了 `id="hero-tagline"` / `id="hero-desc"` 元素，但 `loadData()` 第 367-368 行仍對其賦值 → TypeError → `renderProducts / buildBaziSelect / buildTeaItems` 全部不執行 → 八字表單品項下拉為空（required 擋送出）、下午茶品項清單為空（總數 0 < 30 擋送出）。**目前正式站客人根本送不出單**（已部署的 origin/main 同樣有此 bug）。GAS_URL 賦值在崩潰點之前所以仍會載入，但無濟於事。
+- **兩條訂單流互不相通（已驗證）**：前台訂單由 GAS 寫入前台 Sheet `八字蛋糕訂單` / `下午茶訂單`（實查有 2026/6/6 13:59 戴寧一筆，證明 GAS URL 有效、寫入正常）；後台 `/admin` 只讀後台 Sheet `orders`（實查只有 5/18 測試單一筆）。**全 codebase 沒有任何程式讀 `八字蛋糕訂單` / `下午茶訂單` 兩張 tab**——前台訂單永遠不會出現在後台。
+- **後台 orders tab 標題列與資料錯位**：標題列是舊版 18 欄 schema（訂單編號/建立日期/取件日期/出生地/底色/夾層…），資料列卻是新版 14 欄 schema（db.py ORDERS_HEADER）。db.py 跳過標題列按位置讀所以程式沒事，但**人工直接在 Sheet 上對著標題填資料必錯位**。
+- **前台 Sheet 個資公開風險**：gviz 讀取要求前台 Sheet「知道連結者可檢視」，而客人訂單（姓名/電話/生日）就寫在同一份 Sheet 的訂單 tab——目前任何拿到連結的人都能讀到客人個資。
+- **前台訂單表單沒有「心願」欄位**：後台八字分析 prompt 依賴 `心願主項/心願細項`，但前台表單（index.html）完全沒收集心願——就算接通訂單流，分析流程也缺輸入。業務缺口，待 PM/Olina 定義。
+- **GAS URL 現況**：`cta_url_bazi` 與 `cta_url_tea` 都有值且為**同一個** GAS 部署 URL（doPost 內依 type 分流，設計上合法）。
+- **monthly tab（後台 Sheet）有 12 個月備料建議資料，零程式引用**——setup_excel.py 舊 Excel 時代搬入，純人工參考用。
+- **products.js 為死產物**：index.html 未引用；現存內容是 6/6 舊資料（tagline「山交手作」= 當時的程式預設值），與前台 Sheet 現況不符。但 `/admin/laiten/sync` 的 git push 同時是 images/index.html 部署到 Netlify 的唯一管道，**砍 products.js 生成段時不可砍掉 sync 的 git push 功能**。
+
+### 2026-06-13 Task1 影響分析新增（SA 實測）
+- **service_account 權限現況（Drive API 唯讀實測）**：`bazi-cake-service@bazi-cake.iam.gserviceaccount.com` 對前台 Sheet（1xtuK…）**可讀不可寫**（canEdit=False，讀取可能依賴「知道連結者可檢視」的公開分享）、對後台 Sheet（1oYJ7…）**可讀寫**（canEdit=True）。營運面依賴：關閉前台 Sheet 公開權限前，任何依 service_account 讀前台 Sheet 的程式（搬移腳本）會先斷。
+- **qa_smoke_test.py 基線現況**：36 PASS + 1 SKIP（2026-06-13 實跑全綠）。基線 import 五個模組且 import 失敗即 sys.exit——刪任何 .py 檔必先同步改 MODULES 清單，否則整套基線中斷。
+- **Task1 裁定**：db.py 的 `create_order` / `get_next_order_id` 保留（Phase 2 收件匣轉單複用，新呼叫者 `/admin/inbox/convert`）；Phase 4 死碼清單為 back/app.py、ingredient_web.py、ingredient_classifier.py、setup_excel.py 四檔。
+- **index.html 三 Phase 共改**：Phase 0（loadData 防護）→ Phase 1（loadData 整段改吃 products.js）→ Phase 3（sendToGAS 失敗顯示）依序動同一個 `<script>` 區塊，不可平行；Phase 1 起 products.js 從死產物轉為前台正式資料來源（本檔上方「products.js 為死產物」的描述屆時失效，Task1 完成後更新）。
 
 ### 待 Olina 補充（業務層級，程式碼看不出來）
 1. `品牌設定` / `產品主檔` 在兩份 Sheet 各一份：後台編輯的是後台 Sheet（1oYJ7…），前台讀的是前台 Sheet（1xtuK…）。兩份之間如何同步？是手動複製、還是後台 gws 其實該指向前台 Sheet？（若無同步機制，後台編輯功能形同無效）

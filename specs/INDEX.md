@@ -11,7 +11,8 @@
 | 品牌設計規範 | `DESIGN.md` | 色彩、字體、元件、排版、風格守則 | 既有，僅描述前台視覺，未涵蓋後台 UI |
 | 主規則 | `CLAUDE.md` | Orchestrator 角色、pipeline 摘要、職責邊界 | 既有 |
 | 信號流定義 | `.kb/shared/workflow.md` | pipeline v2 信號流唯一完整定義 | 既有 |
-| 系統依賴地圖 | `specs/SYSTEM_MAP.md` | CLAUDE.md 引用，供 SA 影響分析使用 | **尚未建立**（待 SA 首次分析時產出） |
+| 系統依賴地圖 | `specs/SYSTEM_MAP.md` | CLAUDE.md 引用，供 SA 影響分析使用 | 已建立（2026-06-13 SA 深度調查） |
+| Task1 藍圖 | `specs/Task1_Blueprint.md` | 前台P0修復／Sheet合併／訂單橋接／品牌防呆／死碼清理，分 Phase 0–4 交付 | **進行中**（2026-06-13 PM 撰寫，已建 Task1.ready 待 SA 影響分析） |
 
 ## 程式現況對照（非規格文件，盤點時記錄，供查閱）
 
