@@ -1,0 +1,7 @@
+# Netlify 部署設定（GitHub 自動部署用）
+# 本專案前台是純靜態頁，無建置步驟；只發布 laiten_public/ 目錄，
+# 其餘（admin.py、db.py、specs/ 等後端與內部文件）不上 Netlify。
+
+[build]
+  publish = "laiten_public"
+  command = ""
